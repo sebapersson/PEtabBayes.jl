@@ -1,0 +1,4 @@
+name = "PEtabBayes"
+uuid = "a72c3923-a3c7-4a83-9b2a-169dc9821449"
+authors = ["henhagg <haggstrom.hh@gmail.com>"]
+version = "0.1.0"
