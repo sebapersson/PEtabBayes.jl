@@ -1,5 +1,5 @@
 function to_nllh_scale(
-        x_inference::AbstractVector, inference_info::PEtabBayes.InferenceInfo
+        x_inference::AbstractVector, inference_info::InferenceInfo
     )::AbstractVector
 
     # Transform x into θ - the scale for the priors
@@ -30,8 +30,20 @@ function to_nllh_scale(
     return x_nllh
 end
 
-function PEtabBayes.to_prior_scale(
-        x_nllh::AbstractVector, target::PEtabBayes.PEtabBayesLogDensity
+"""
+    to_prior_scale(xpetab, target::PEtabLogDensity)
+
+Transforms parameter `x` from the PEtab problem scale to the prior scale.
+
+This conversion is needed for Bayesian inference, as in PEtab.jl Bayesian inference is
+performed on the prior scale.
+
+!!! note
+    To use this function, the Bijectors, LogDensityProblems, and LogDensityProblemsAD
+    packages must be loaded: `using Bijectors, LogDensityProblems, LogDensityProblemsAD`
+"""
+function to_prior_scale(
+        x_nllh::AbstractVector, target::PEtabBayesLogDensity
     )::AbstractVector
     inference_info = target.inference_info
     @unpack parameters_scale, priors_scale = inference_info

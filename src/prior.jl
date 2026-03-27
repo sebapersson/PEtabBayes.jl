@@ -1,6 +1,6 @@
-function PEtabBayes.compute_prior(
+function compute_prior(
         x_inference,
-        inference_info::PEtabBayes.InferenceInfo
+        inference_info::InferenceInfo
     )
     logpdf_prior = 0.0
     x_prior = inference_info.inv_bijectors(x_inference)

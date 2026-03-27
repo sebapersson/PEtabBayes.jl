@@ -1,10 +1,10 @@
-function PEtabBayes.PEtabBayesLogDensity(petab_problem::PEtabODEProblem)::PEtabBayes.PEtabBayesLogDensity
-    inference_info = PEtabBayes.InferenceInfo(petab_problem)
+function PEtabBayesLogDensity(petab_problem::PEtabODEProblem)::PEtabBayesLogDensity
+    inference_info = InferenceInfo(petab_problem)
     @unpack nllh, nllh_grad, nparameters_estimate = petab_problem
 
     # For via autodiff compute the gradient of the prior and Jacobian correction
     _prior_correction = (x_inference) -> let inference_info = inference_info
-        prior = PEtabBayes.compute_prior(x_inference, inference_info)
+        prior = compute_prior(x_inference, inference_info)
         correction = Bijectors.logabsdetjac(inference_info.inv_bijectors, x_inference)
         return prior + correction
     end
@@ -21,17 +21,17 @@ function PEtabBayes.PEtabBayesLogDensity(petab_problem::PEtabODEProblem)::PEtabB
 
     initial_value = Vector{Float64}(undef, nparameters_estimate)
 
-    return PEtabBayes.PEtabBayesLogDensity(
+    return PEtabBayesLogDensity(
         inference_info, logtarget, logtarget_gradient,
         initial_value, nparameters_estimate
     )
 end
 
-function PEtabBayes.InferenceInfo(petab_problem::PEtabODEProblem)::PEtabBayes.InferenceInfo
+function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
     @unpack model_info, lower_bounds, upper_bounds, xnominal = petab_problem
     @unpack priors, petab_parameters = model_info
 
-    parameter_names = Symbol.(ComponentArrays.labels(xnominal))
+    parameter_names = Symbol.(labels(xnominal))
     n_parameters = length(parameter_names)
 
     priors_dist = Vector{PEtab.ContDistribution}(undef, n_parameters)
@@ -71,7 +71,7 @@ function PEtabBayes.InferenceInfo(petab_problem::PEtabODEProblem)::PEtabBayes.In
     bijectors = Bijectors.Stacked(bijectors)
     tpriors = Bijectors.transformed.(priors_dist)
 
-    return PEtabBayes.InferenceInfo(
+    return InferenceInfo(
         priors_dist, tpriors, bijectors, inv_bijectors, priors_scale, parameters_scale,
         parameter_names
     )

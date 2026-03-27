@@ -34,7 +34,7 @@ struct PEtabBayesLogDensity{
     initial_value::Vector{T2}
     dim::I
 end
-function (logpotential::PEtabBayes.PEtabBayesLogDensity)(x)
+function (logpotential::PEtabBayesLogDensity)(x)
     return logpotential.logtarget(x)
 end
 

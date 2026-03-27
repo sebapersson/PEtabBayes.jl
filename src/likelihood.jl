@@ -1,13 +1,13 @@
-function PEtabBayes.compute_llh(
-        x_inference::AbstractVector{T}, nllh::Function, inference_info::PEtabBayes.InferenceInfo
+function compute_llh(
+        x_inference::AbstractVector{T}, nllh::Function, inference_info::InferenceInfo
     )::T where {T <: Real}
     x = to_nllh_scale(x_inference, inference_info)
     return nllh(x; prior = false) * -1
 end
 
-function PEtabBayes.correct_gradient!(
+function correct_gradient!(
         grad::T, x_inference::T, x_nllh::T,
-        inference_info::PEtabBayes.InferenceInfo
+        inference_info::InferenceInfo
     )::Nothing where {
         T <:
         AbstractVector,
