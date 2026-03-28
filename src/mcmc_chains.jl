@@ -15,8 +15,7 @@ chain has the parameters on the prior scale.
 """
 
 function to_chains(
-        res, target::PEtabBayesLogDensity; start_time = nothing,
-        end_time = nothing
+        res, target::PEtabBayesLogDensity; start_time = nothing, end_time = nothing
     )
 
     # Dependent on method
@@ -38,8 +37,8 @@ end
 
 
 function to_chains(
-        res::NamedTuple, target::PEtabBayesLogDensity;
-        start_time = nothing, end_time = nothing
+        res::NamedTuple, target::PEtabBayesLogDensity; start_time = nothing,
+        end_time = nothing
     )
 
     # Dependent on method

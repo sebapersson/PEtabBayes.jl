@@ -1,33 +1,25 @@
 module PEtabBayes
 
-using Bijectors
+import Bijectors
 using ComponentArrays: ComponentArray, labels
-using Distributions
+using Distributions: Distribution, Univariate, Continuous, Uniform, logpdf
 using LogDensityProblems: LogDensityProblems, LogDensityOrder
 using ForwardDiff: gradient
 using MCMCChains: Chains, setinfo
-using PEtab: PEtab, PEtabODEProblem, PEtabParameter, PEtabObservable, PEtabCondition
-using ModelingToolkitBase: @unpack
+using PEtab: PEtab, PEtabODEProblem
+using SimpleUnPack: @unpack
 
 const ContDistribution = Distribution{Univariate, Continuous}
-include(joinpath("structs", "inference.jl"))
 
-# Functions that only appear in extension
-function compute_llh end
-function compute_prior end
-function get_correction end
-function correct_gradient! end
+include("structs.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, to_chains #, InferenceInfo
+include("common.jl")
+include("init_structs.jl")
+include("likelihood.jl")
+include("log_density_problem.jl")
+include("mcmc_chains.jl")
+include("prior.jl")
 
-function to_prior_scale end
-function to_chains end
+export PEtabBayesLogDensity, to_prior_scale, to_chains
 
-include(joinpath(@__DIR__, "init_structs.jl"))
-include(joinpath(@__DIR__, "common.jl"))
-include(joinpath(@__DIR__, "likelihood.jl"))
-include(joinpath(@__DIR__, "log_density_problem.jl"))
-include(joinpath(@__DIR__, "prior.jl"))
-include(joinpath(@__DIR__, "mcmc_chains.jl"))
-
-end # end of module PEtabBayes
+end

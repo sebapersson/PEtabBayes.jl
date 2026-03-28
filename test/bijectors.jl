@@ -1,5 +1,5 @@
 using LogDensityProblems, LogDensityProblemsAD, Bijectors, DataFrames, PEtab, PEtabBayes,
-    FiniteDifferences, ModelingToolkitBase, Catalyst, ForwardDiff, Test
+    FiniteDifferences, Catalyst, ForwardDiff, Test
 
 function test_custom_llh_and_gradient(x_nllh, x_inference, inference_info)
     # Setup a test dataset (mixture-normal)
@@ -37,8 +37,8 @@ function _compute_nllh(
         end
     end
     μ1, μ2 = x
-    _logpdf = sum(logpdf(Normal(μ1, 1.0), data[1:10]))
-    _logpdf += sum(logpdf(Normal(μ2, 1.0), data[11:20]))
+    _logpdf = sum(map(Base.Fix1(logpdf, Normal(μ1, 1.0)), data[1:10]))
+    _logpdf += sum(map(Base.Fix1(logpdf, Normal(μ2, 1.0)), data[11:20]))
     return _logpdf * -1
 end
 
@@ -120,7 +120,7 @@ end
     rs = @reaction_network begin
         (k1, k2), X1 <--> X2
     end
-    u0 = [:X1 => 1.0]
+    u0 = [:X1 => 1.0, :X2 => 0.0]
     @unpack X1 = rs
     observables = PEtabObservable(:obs_X1, X1, 0.5)
     par_k1 = PEtabParameter(:k1; scale = :lin, prior = Normal(1.0, 1.0), value = 1.1)
