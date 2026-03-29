@@ -42,10 +42,10 @@ function _llh_ref(x_prior_scale)
     ps = [:k1 => x_prior_scale[1], :k2 => x_prior_scale[2]]
     ode_problem = ODEProblem(rs, u0, (0.0, 3.0), ps)
     sol = solve(
-        ode_problem, Rodas5P(); saveat = [1.0, 2.0, 3.0], abstol = 1e-8, reltol = 1e-8
+        ode_problem, Rodas5P(); saveat = [1.0, 2.0, 3.0], abstol = 1.0e-8, reltol = 1.0e-8
     )
-    diff = ((sol[:X1] - [1.1, 1.2, 1.3]) ./ 0.5).^2
-    return -log(0.5) * 3 - 3 / 2.0 *log(2π) - 0.5*sum(diff)
+    diff = ((sol[:X1] - [1.1, 1.2, 1.3]) ./ 0.5) .^ 2
+    return -log(0.5) * 3 - 3 / 2.0 * log(2π) - 0.5 * sum(diff)
 end
 
 function test_bijectors(p_est::Vector{PEtabParameter})::Nothing
@@ -90,27 +90,27 @@ end
 # Unbounded priors on linear scale
 p_est = [
     PEtabParameter(:k1; scale = :lin, prior = Normal(1.0, 1.0), value = 1.1),
-    PEtabParameter(:k2; scale = :lin, prior = Normal(0.5, 3.0), value = 0.9)
+    PEtabParameter(:k2; scale = :lin, prior = Normal(0.5, 3.0), value = 0.9),
 ]
 test_bijectors(p_est)
 
 # Bounded priors and parameters on linear scale
 p_est = [
     PEtabParameter(:k1; scale = :lin, prior = Uniform(0.0, 2.0), value = 1.1),
-    PEtabParameter(:k2; scale = :lin, prior = Gamma(1.0, 1.0), value = 0.9)
+    PEtabParameter(:k2; scale = :lin, prior = Gamma(1.0, 1.0), value = 0.9),
 ]
 test_bijectors(p_est)
 
 # Truncated priors
 p_est = [
     PEtabParameter(:k1; scale = :lin, prior = truncated(Normal(1.0, 1.0), 0.0, 2.0), value = 1.1),
-    PEtabParameter(:k2; scale = :lin, prior = truncated(Gamma(1.0, 1.0), 0.0, 10.0), value = 0.9)
+    PEtabParameter(:k2; scale = :lin, prior = truncated(Gamma(1.0, 1.0), 0.0, 10.0), value = 0.9),
 ]
 test_bijectors(p_est)
 
 # log and log10 scale
 p_est = [
     PEtabParameter(:k1; scale = :log, prior = LogNormal(0.0, 1.0), value = 1.1),
-    PEtabParameter(:k2; scale = :log10, prior = LogNormal(0.0, 1.0), value = 0.9)
+    PEtabParameter(:k2; scale = :log10, prior = LogNormal(0.0, 1.0), value = 0.9),
 ]
 test_bijectors(p_est)

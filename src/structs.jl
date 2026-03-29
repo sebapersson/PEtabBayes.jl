@@ -89,7 +89,7 @@ defines everything needed to perform Bayesian inference with packages such as
 struct PEtabBayesLogDensity{
         T <: InferenceInfo,
         I <: Integer,
-        P <: PriorCorrection
+        P <: PriorCorrection,
     }
     inference_info::T
     dim::I
