@@ -1,10 +1,11 @@
-function compute_prior(
-        x_inference, inference_info::InferenceInfo
-    )
-    logpdf_prior = 0.0
+function _log_prior(
+        x_inference::AbstractVector{T}, inference_info::InferenceInfo
+    )::T where {T <: Real}
     x_prior = inference_info.inv_bijectors(x_inference)
+
+    log_prior = 0.0
     for (i, prior) in pairs(inference_info.priors)
-        logpdf_prior += logpdf(prior, x_prior[i])
+        log_prior += logpdf(prior, x_prior[i])
     end
-    return logpdf_prior
+    return log_prior
 end

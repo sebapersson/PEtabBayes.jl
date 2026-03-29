@@ -17,7 +17,6 @@ chain has the parameters on the prior scale.
 function to_chains(
         res, target::PEtabBayesLogDensity; start_time = nothing, end_time = nothing
     )
-
     # Dependent on method
     n_samples = length(res)
     inference_info = target.inference_info
@@ -40,7 +39,6 @@ function to_chains(
         res::NamedTuple, target::PEtabBayesLogDensity; start_time = nothing,
         end_time = nothing
     )
-
     # Dependent on method
     n_samples = size(res.X)[2]
     inference_info = target.inference_info

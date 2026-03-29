@@ -1,145 +1,116 @@
-using LogDensityProblems, LogDensityProblemsAD, Bijectors, DataFrames, PEtab, PEtabBayes,
-    FiniteDifferences, Catalyst, ForwardDiff, Test
+using LogDensityProblems, Bijectors, DataFrames, PEtab, PEtabBayes, FiniteDifferences,
+    Catalyst, Test, OrdinaryDiffEqRosenbrock
 
-function test_custom_llh_and_gradient(x_nllh, x_inference, inference_info)
-    # Setup a test dataset (mixture-normal)
-    dist1_data = Normal(-2.0, 1.0)
-    dist2_data = Normal(3.0, 1.0)
-    data = vcat(rand(dist1_data, 10), rand(dist2_data, 10))
-
-    # For Likelihood
-    compute_nllh_ref = (x; prior = true) -> _compute_nllh(x, inference_info, data)
-    compute_llh_check = (x) -> PEtabBayes.compute_llh(x, compute_nllh_ref, inference_info)
-    llh_ref = compute_nllh_ref(x_nllh) * -1
-    llh_check = compute_llh_check(x_inference)
-    @test llh_ref ≈ llh_check atol = 1.0e-10
-
-    # For gradient
-    grad_ref = ForwardDiff.gradient(compute_llh_check, x_inference)
-    grad_check = ForwardDiff.gradient(compute_nllh_ref, x_nllh)
-    PEtabBayes.correct_gradient!(grad_check, x_inference, x_nllh, inference_info)
-    @test all(grad_ref .- grad_check .< 1.0e-10)
-    return nothing
-end
-
-function _compute_nllh(
-        θ::Vector{T}, inference_info::PEtabBayes.InferenceInfo, data::Vector{Float64}
-    )::T where {T <: Real}
-    x = similar(θ)
-    @unpack priors_scale, parameters_scale = inference_info
-    for i in eachindex(x)
-        if parameters_scale[i] === :lin
-            x[i] = θ[i]
-        elseif parameters_scale[i] === :log10
-            x[i] = exp10(θ[i])
-        elseif parameters_scale[i] === :log
-            x[i] = exp(θ[i])
-        end
-    end
-    μ1, μ2 = x
-    _logpdf = sum(map(Base.Fix1(logpdf, Normal(μ1, 1.0)), data[1:10]))
-    _logpdf += sum(map(Base.Fix1(logpdf, Normal(μ2, 1.0)), data[11:20]))
-    return _logpdf * -1
-end
-
-@testset "Likelihood and gradient transformation" begin
-    # log10 and lin scale, bounded priors
-    prior1, scale1, prior_scale1 = Uniform(-10, 0), :lin, :lin
-    prior2, scale2, prior_scale2 = Gamma(1.0, 1.0), :log10, :lin
-    _inference_info = PEtabBayes.InferenceInfo(
-        [prior1, prior2], Bijectors.transformed.([prior1, prior2]),
-        Bijectors.Stacked(Bijectors.bijector.([prior1, prior2])),
-        Bijectors.Stacked(Bijectors.inverse.(Bijectors.bijector.([prior1, prior2]))),
-        [prior_scale1, prior_scale2], [scale1, scale2],
-        [:μ1, :μ2]
-    )
-    x_nllh = [-3.0, log10(2.0)]
-    x_inference = _inference_info.bijectors([-3.0, 2.0])
-    test_custom_llh_and_gradient(x_nllh, x_inference, _inference_info)
-
-    # log10 and lin scale, unbounded priors
-    prior1, scale1, prior_scale1 = Normal(-2.0, 1.0), :lin, :lin
-    prior2, scale2, prior_scale2 = Normal(1.0, 1.0), :log10, :lin
-    _inference_info = PEtabBayes.InferenceInfo(
-        [prior1, prior2], Bijectors.transformed.([prior1, prior2]),
-        Bijectors.Stacked(Bijectors.bijector.([prior1, prior2])),
-        Bijectors.Stacked(Bijectors.inverse.(Bijectors.bijector.([prior1, prior2]))),
-        [prior_scale1, prior_scale2], [scale1, scale2],
-        [:μ1, :μ2]
-    )
-    x_nllh = [-3.0, log10(2.0)]
-    x_inference = _inference_info.bijectors([-3.0, 2.0])
-    test_custom_llh_and_gradient(x_nllh, x_inference, _inference_info)
-
-    # log and lin scale, bounded priors
-    prior1, scale1, prior_scale1 = Uniform(-10.0, 0.0), :lin, :lin
-    prior2, scale2, prior_scale2 = Gamma(1.0, 1.0), :log, :lin
-    _inference_info = PEtabBayes.InferenceInfo(
-        [prior1, prior2], Bijectors.transformed.([prior1, prior2]),
-        Bijectors.Stacked(Bijectors.bijector.([prior1, prior2])),
-        Bijectors.Stacked(Bijectors.inverse.(Bijectors.bijector.([prior1, prior2]))),
-        [prior_scale1, prior_scale2], [scale1, scale2],
-        [:μ1, :μ2]
-    )
-    x_nllh = [-3.0, log(2.0)]
-    x_inference = _inference_info.bijectors([-3.0, 2.0])
-    test_custom_llh_and_gradient(x_nllh, x_inference, _inference_info)
-
-    # Prior on parameter scale, bounded priors
-    prior1, scale1, prior_scale1 = Uniform(-10.0, 0.0), :lin, :parameter_scale
-    prior2, scale2, prior_scale2 = Gamma(1.0, 1.0), :log, :parameter_scale
-    _inference_info = PEtabBayes.InferenceInfo(
-        [prior1, prior2], Bijectors.transformed.([prior1, prior2]),
-        Bijectors.Stacked(Bijectors.bijector.([prior1, prior2])),
-        Bijectors.Stacked(Bijectors.inverse.(Bijectors.bijector.([prior1, prior2]))),
-        [prior_scale1, prior_scale2], [scale1, scale2],
-        [:μ1, :μ2]
-    )
-    x_nllh = [-3.0, log(2.0)]
-    x_inference = _inference_info.bijectors([-3.0, log(2.0)])
-    test_custom_llh_and_gradient(x_nllh, x_inference, _inference_info)
-
-    # Prior on parameter scale, unbounded priors
-    prior1, scale1, prior_scale1 = Normal(-1.0, 1.0), :lin, :parameter_scale
-    prior2, scale2, prior_scale2 = Normal(1.0, 1.0), :log, :parameter_scale
-    _inference_info = PEtabBayes.InferenceInfo(
-        [prior1, prior2], Bijectors.transformed.([prior1, prior2]),
-        Bijectors.Stacked(Bijectors.bijector.([prior1, prior2])),
-        Bijectors.Stacked(Bijectors.inverse.(Bijectors.bijector.([prior1, prior2]))),
-        [prior_scale1, prior_scale2], [scale1, scale2],
-        [:μ1, :μ2]
-    )
-    x_nllh = [-3.0, log(2.0)]
-    x_inference = _inference_info.bijectors([-3.0, log(2.0)])
-    test_custom_llh_and_gradient(x_nllh, x_inference, _inference_info)
-end
-
-# Test PEtabBayesLogDensity computes everything correctly for non-uniform priors on unbounded
-# domain without need for corrections
-@testset "PEtabBayesLogDensity" begin
+function _get_petab_problem(p_est)
     rs = @reaction_network begin
         (k1, k2), X1 <--> X2
     end
     u0 = [:X1 => 1.0, :X2 => 0.0]
     @unpack X1 = rs
     observables = PEtabObservable(:obs_X1, X1, 0.5)
-    par_k1 = PEtabParameter(:k1; scale = :lin, prior = Normal(1.0, 1.0), value = 1.1)
-    par_k2 = PEtabParameter(:k2; scale = :lin, prior = Normal(0.5, 3.0), value = 0.9)
-    params = [par_k1, par_k2]
     measurements = DataFrame(
         obs_id = "obs_X1", time = [1.0, 2.0, 3.0], measurement = [1.1, 1.2, 1.3]
     )
-    model = PEtabModel(rs, observables, measurements, params; speciemap = u0)
-    prob = PEtabODEProblem(model; verbose = false)
-    prob_density = PEtabBayesLogDensity(prob)
-    x = get_x(prob)
-    xinference = prob_density.inference_info.bijectors(x)
-    llh_prior = prob.nllh(x) * -1
-    llh_prior_grad = prob.grad(x) .* -1
-    log_target, log_target_grad = prob_density.logtarget_gradient(xinference)
-    @test llh_prior == prob_density.logtarget(xinference)
-    @test llh_prior ≈ log_target atol = 1.0e-6
-    @test all(.≈(llh_prior_grad[:], log_target_grad; atol = 1.0e-6))
-    g_ref = FiniteDifferences.grad(central_fdm(5, 1), prob_density.logtarget, xinference)[1]
-    @test all(.≈(g_ref, log_target_grad; atol = 1.0e-6))
+    model = PEtabModel(rs, observables, measurements, p_est; speciemap = u0)
+    return PEtabODEProblem(model)
 end
+
+function _get_x_prior_scale(x::Real, scale::Symbol)
+    if scale === :lin
+        return x
+    elseif scale === :log10
+        return exp10(x)
+    elseif scale === :log
+        return exp(x)
+    end
+end
+
+# Test priors, log-likelihood and its gradient are computed correctly
+function _prior_ref(x_prior_scale, p_est)
+    log_prior = 0.0
+    for i in eachindex(p_est)
+        log_prior += logpdf(p_est[i].prior, x_prior_scale[i])
+    end
+    return log_prior
+end
+
+function _llh_ref(x_prior_scale)
+    rs = @reaction_network begin
+        (k1, k2), X1 <--> X2
+    end
+    u0 = [:X1 => 1.0, :X2 => 0.0]
+    ps = [:k1 => x_prior_scale[1], :k2 => x_prior_scale[2]]
+    ode_problem = ODEProblem(rs, u0, (0.0, 3.0), ps)
+    sol = solve(
+        ode_problem, Rodas5P(); saveat = [1.0, 2.0, 3.0], abstol = 1e-8, reltol = 1e-8
+    )
+    diff = ((sol[:X1] - [1.1, 1.2, 1.3]) ./ 0.5).^2
+    return -log(0.5) * 3 - 3 / 2.0 *log(2π) - 0.5*sum(diff)
+end
+
+function test_bijectors(p_est::Vector{PEtabParameter})::Nothing
+    prob_test = _get_petab_problem(p_est)
+    log_density = PEtabBayesLogDensity(prob_test)
+
+    x_petab_scale = get_x(prob_test)
+    x_prior_scale = PEtabBayes.to_prior_scale(x_petab_scale, log_density)
+    x_inference_scale = log_density.inference_info.bijectors(x_prior_scale)
+
+    # Test prior
+    log_prior_ref = _prior_ref(x_prior_scale, p_est)
+    log_prior_test = PEtabBayes._log_prior(x_inference_scale, log_density.inference_info)
+    @test log_prior_ref ≈ log_prior_test atol = 1.0e-10
+
+    # Test log-target
+    log_correction = Bijectors.logabsdetjac(
+        log_density.inference_info.inv_bijectors, x_inference_scale
+    )
+    log_target_ref = log_prior_ref + log_correction + _llh_ref(x_prior_scale)
+    log_target_test = LogDensityProblems.logdensity(log_density, x_inference_scale)
+    @test log_target_ref ≈ log_target_test atol = 1.0e-10
+
+    # Test log-target gradient
+    f_ref = x -> begin
+        x_prior = log_density.inference_info.inv_bijectors(x)
+        log_correction = Bijectors.logabsdetjac(
+            log_density.inference_info.inv_bijectors, x
+        )
+        log_prior_ref = _prior_ref(x_prior, p_est)
+        return log_prior_ref + log_correction + _llh_ref(x_prior)
+    end
+    grad_ref = FiniteDifferences.grad(central_fdm(5, 1), f_ref, x_inference_scale)[1]
+    log_target_test, grad_test = LogDensityProblems.logdensity_and_gradient(
+        log_density, x_inference_scale
+    )
+    @test log_target_ref ≈ log_target_test atol = 1.0e-6
+    @test all(.≈(grad_ref, grad_test; atol = 1.0e-6))
+    return nothing
+end
+
+# Unbounded priors on linear scale
+p_est = [
+    PEtabParameter(:k1; scale = :lin, prior = Normal(1.0, 1.0), value = 1.1),
+    PEtabParameter(:k2; scale = :lin, prior = Normal(0.5, 3.0), value = 0.9)
+]
+test_bijectors(p_est)
+
+# Bounded priors and parameters on linear scale
+p_est = [
+    PEtabParameter(:k1; scale = :lin, prior = Uniform(0.0, 2.0), value = 1.1),
+    PEtabParameter(:k2; scale = :lin, prior = Gamma(1.0, 1.0), value = 0.9)
+]
+test_bijectors(p_est)
+
+# Truncated priors
+p_est = [
+    PEtabParameter(:k1; scale = :lin, prior = truncated(Normal(1.0, 1.0), 0.0, 2.0), value = 1.1),
+    PEtabParameter(:k2; scale = :lin, prior = truncated(Gamma(1.0, 1.0), 0.0, 10.0), value = 0.9)
+]
+test_bijectors(p_est)
+
+# log and log10 scale
+p_est = [
+    PEtabParameter(:k1; scale = :log, prior = LogNormal(0.0, 1.0), value = 1.1),
+    PEtabParameter(:k2; scale = :log10, prior = LogNormal(0.0, 1.0), value = 0.9)
+]
+test_bijectors(p_est)
