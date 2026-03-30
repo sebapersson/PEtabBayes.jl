@@ -1,5 +1,5 @@
 using PEtab, PEtabBayes, OrdinaryDiffEqRosenbrock, Distributions, Random, DataFrames, CSV,
-    MCMCChains, Test, AdaptiveMCMC, AdvancedHMC, ModelingToolkitBase
+    MCMCChains, Test, AdaptiveMCMC, AdvancedHMC, ModelingToolkitBase, LogDensityProblems
 using ModelingToolkitBase: t_nounits as t, D_nounits as D
 
 function get_reference_stats(path_data)
@@ -83,8 +83,11 @@ end
 
     # AdaptiveMCMC
     Random.seed!(1234)
+    log_target = let p = target
+        x -> LogDensityProblems.logdensity(p, x)
+    end
     target = PEtabBayesLogDensity(prob)
-    res = adaptive_rwm(xinference, target.logtarget, 200000; progress = false)
+    res = adaptive_rwm(xinference, log_target, 200000; progress = false)
     chain_adapt = PEtabBayes.to_chains(res, target)
     adaptive_stats = summarystats(chain_adapt)
     @testset "Adaptive MCMC" begin
