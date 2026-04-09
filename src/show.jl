@@ -4,7 +4,7 @@
 =#
 import Base.show
 
-StyledStrings.addface!(:PURPLE => StyledStrings.Face(foreground=0x008f4093))
+StyledStrings.addface!(:PURPLE => StyledStrings.Face(foreground = 0x008f4093))
 
 function show(io::IO, logdensity::PEtabBayesLogDensity)
     @unpack prob, dim = logdensity
@@ -24,7 +24,7 @@ function describe(logdensity::PEtabBayesLogDensity)
     return print(_describe(logdensity))
 end
 
-function _describe(logdensity::PEtabBayesLogDensity; styled::Bool=true)
+function _describe(logdensity::PEtabBayesLogDensity; styled::Bool = true)
     # Get problem statistics
     @unpack inference_info, dim, f_prior_correction, prob = logdensity
     model = prob.model_info.model

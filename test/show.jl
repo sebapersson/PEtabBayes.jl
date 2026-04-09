@@ -16,7 +16,7 @@ function get_prob_saturated(pest)::PEtabODEProblem
     oprob = ODEProblem(sys, merge(Dict(u0_map), Dict(parameter_map)), (0.0, 2.5))
     tsave = collect(range(0.0, 2.5, 101))
     _sol = solve(
-        oprob, Rodas5P(), abstol=1.0e-12, reltol=1.0e-12, saveat=tsave, tstops=tsave
+        oprob, Rodas5P(), abstol = 1.0e-12, reltol = 1.0e-12, saveat = tsave, tstops = tsave
     )
     obs = _sol[:x] .+ rand(Normal(0.0, 0.03), length(tsave))
 
@@ -25,19 +25,19 @@ function get_prob_saturated(pest)::PEtabODEProblem
     observables = PEtabObservable(:obs_X, :x, sigma)
 
     measurements = DataFrame(
-        obs_id="obs_X", time=_sol.t, measurement=obs
+        obs_id = "obs_X", time = _sol.t, measurement = obs
     )
 
-    model = PEtabModel(sys, observables, measurements, pest; verbose=false)
+    model = PEtabModel(sys, observables, measurements, pest; verbose = false)
     return PEtabODEProblem(
-        model; odesolver=ODESolver(Rodas5P(), abstol=1.0e-6, reltol=1.0e-6)
+        model; odesolver = ODESolver(Rodas5P(), abstol = 1.0e-6, reltol = 1.0e-6)
     )
 end
 
 @testset "Show and Describe" begin
-    _b1 = PEtabParameter(:b1, value=1.0, lb=0.0, ub=5.0, scale=:lin)
-    _b2 = PEtabParameter(:b2, value=0.2, lb=0.0, ub=5.0, scale=:lin)
-    _sigma = PEtabParameter(:sigma, value=0.03, lb=1.0e-3, ub=1.0e2, scale=:lin)
+    _b1 = PEtabParameter(:b1, value = 1.0, lb = 0.0, ub = 5.0, scale = :lin)
+    _b2 = PEtabParameter(:b2, value = 0.2, lb = 0.0, ub = 5.0, scale = :lin)
+    _sigma = PEtabParameter(:sigma, value = 0.03, lb = 1.0e-3, ub = 1.0e2, scale = :lin)
     pest = [_b1, _b2, _sigma]
     prob = get_prob_saturated(pest)
     target = PEtabBayesLogDensity(prob)
@@ -67,11 +67,11 @@ end
 
     @testset "_describe internal function" begin
         # Test styled version
-        output_styled = PEtabBayes._describe(target; styled=true)
+        output_styled = PEtabBayes._describe(target; styled = true)
         @test !isempty(output_styled)
 
         # Test non-styled version
-        output_plain = PEtabBayes._describe(target; styled=false)
+        output_plain = PEtabBayes._describe(target; styled = false)
         @test !isempty(output_plain)
     end
 end
