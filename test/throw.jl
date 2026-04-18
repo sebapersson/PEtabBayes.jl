@@ -14,13 +14,11 @@ x0 = get_x(prob)
 
 # Must take at least one sample
 @test_throws ArgumentError begin
-    _ = PEtabBayes.sample(
-        log_target, x0, 0, RobustAdaptiveMetropolis(x0)
-    )
+    _ = PEtabBayes.sample(log_target, RobustAdaptiveMetropolis(x0), 0, x0)
 end
 # Forbidden keyword
 @test_throws ArgumentError begin
     _ = PEtabBayes.sample(
-        log_target, x0, 200000, RobustAdaptiveMetropolis(x0); algorithm = :rwm
+        log_target, RobustAdaptiveMetropolis(x0), 20, x0; algorithm = :rwm
     )
 end

@@ -9,8 +9,8 @@ import PEtabBayes
 const HMCSampler = Union{AdvancedHMC.HMC, AdvancedHMC.NUTS, AdvancedHMC.HMCDA}
 
 function PEtabBayes._sample(
-        log_target::PEtabBayes.PEtabBayesLogDensity, x0::PEtabBayes.InputVector,
-        n_samples::Integer, alg::HMCSampler; drop_warmup::Bool = true,
+        log_target::PEtabBayes.PEtabBayesLogDensity, alg::HMCSampler,
+        n_samples::Integer, x0::PEtabBayes.InputVector; drop_warmup::Bool = true,
         n_adapts::Union{Nothing, Integer} = nothing, verbose::Bool = false,
         progress::Bool = false
     )
