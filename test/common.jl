@@ -1,4 +1,5 @@
-using DataFrames, CSV, MCMCChains, ModelingToolkitBase, OrdinaryDiffEqRosenbrock, PEtab
+using DataFrames, CSV, MCMCChains, ModelingToolkitBase, OrdinaryDiffEqRosenbrock, PEtab,
+    Random
 using ModelingToolkitBase: t_nounits as t, D_nounits as D
 
 function get_reference_stats(path_data)

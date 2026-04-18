@@ -12,8 +12,8 @@ function PEtabBayes._sample(
     )::Chains
     if haskey(kwargs, :algorithm)
         throw(ArgumentError("The keyword argument `algorithm` is not supported. \
-            For `PEtabBayes._sample`, the sampler algorithm must be passed as an \
-            `AdaptiveMCMC.AdaptState` argument, e.g.
+            For `sample`, the sampler algorithm must be passed as an \
+            `AdaptiveMCMC.AdaptState` argument, e.g. \
             `sample(target, x0, n_samples, RobustAdaptiveMetropolis(x0))`, rather than \
             `sample(target, x0, n_samples; algorithm = :rwm)`."))
     end
