@@ -23,6 +23,6 @@ include("mcmc_chains.jl")
 include("prior.jl")
 include("sample.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, to_chains, sample
+export PEtabBayesLogDensity, to_prior_scale, sample
 
 end

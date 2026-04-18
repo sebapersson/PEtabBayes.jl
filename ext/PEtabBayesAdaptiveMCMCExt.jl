@@ -37,10 +37,10 @@ function PEtabBayes._sample(
         x0_inference_scale, _log_target, 200000; algorithm = _alg, kwargs...
     )
     end_time = Dates.now()
-    chain_adapt = PEtabBayes._to_chains_adaptive_mcmc(
+
+    return PEtabBayes._to_chains_adaptive_mcmc(
         res, log_target; start_time = start_time, end_time = end_time
     )
-    return chain_adapt
 end
 
 end
