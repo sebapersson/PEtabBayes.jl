@@ -50,7 +50,7 @@ Hamiltonian Monte Carlo sampler `alg` from AdvancedHMC.jl. Returns an `MCMCChain
 This is a wrapper around `AdvancedHMC.sample` from
 [AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl).
 
-`log_target`, `x0`, and `n_samples` have the same meaning as in
+`log_target` and `x0` have the same meaning as in
 `sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`.
 
 # Arguments
@@ -58,6 +58,7 @@ This is a wrapper around `AdvancedHMC.sample` from
   - `NUTS` (recommended): No-U-Turn Sampler.
   - `HMC`: Hamiltonian Monte Carlo.
   - `HMCDA`: Hamiltonian Monte Carlo with dual averaging.
+- `n_samples`: Number of samples to draw, excluding burn-in.
 
 # Keyword arguments
 Keyword arguments are passed to `AdvancedHMC.sample`. Supported keyword arguments are:
