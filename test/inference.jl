@@ -43,7 +43,7 @@ include(joinpath(@__DIR__, "common.jl"))
     Random.seed!(1234)
     x0 = get_x(prob)
     chain_adapt1 = PEtabBayes.sample(
-        target, x0, 200000, RobustAdaptiveMetropolis(x0), progress = true
+        target, x0, 200000, RobustAdaptiveMetropolis(x0); progress = false
     )
     adaptive_stats1 = summarystats(chain_adapt1)
     @testset "Adaptive MCMC RAM" begin
@@ -56,7 +56,7 @@ include(joinpath(@__DIR__, "common.jl"))
     end
     # Test other adaptive MCMC sampler
     chain_adapt2 = PEtabBayes.sample(
-        target, x0, 200000, AdaptiveMetropolis(x0), progress = false
+        target, x0, 200000, AdaptiveMetropolis(x0)
     )
     adaptive_stats2 = summarystats(chain_adapt2)
     @testset "Adaptive MCMC AM" begin
