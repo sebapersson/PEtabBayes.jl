@@ -1,4 +1,4 @@
-using SafeTestsets, PEtabBayes
+using SafeTestsets
 
 @safetestset "Bijectors" begin
     include("bijectors.jl")
