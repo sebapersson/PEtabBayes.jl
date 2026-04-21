@@ -7,8 +7,8 @@ import MCMCChains: Chains
 import PEtabBayes
 
 function PEtabBayes._sample(
-        log_target::PEtabBayes.PEtabBayesLogDensity, x0::PEtabBayes.InputVector,
-        n_samples::Integer, alg::AdaptiveMCMC.AdaptState; kwargs...
+        log_target::PEtabBayes.PEtabBayesLogDensity, alg::AdaptiveMCMC.AdaptState,
+        n_samples::Integer, x0::PEtabBayes.InputVector; kwargs...
     )::Chains
     if haskey(kwargs, :algorithm)
         throw(ArgumentError("The keyword argument `algorithm` is not supported. \

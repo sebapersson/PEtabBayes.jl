@@ -1,6 +1,6 @@
 """
     sample(
-        log_target::PEtabLogDensity, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...
+        log_target::PEtabLogDensity, alg::AdaptiveMCMC.AdaptState, n_samples, x0; kwargs...
     )
 
 Draw `n_samples` from the posterior defined by `log_target`, starting from `x0` using the
@@ -12,9 +12,6 @@ keyword arguments.
 
 # Arguments
 - `log_target`: Log-posterior density to sample from.
-- `x0`: Initial parameter vector on the PEtab estimation scale, for example the output from
-  `get_x(petab_prob)`. Can be a `Vector` or `ComponentArray`.
-- `n_samples`: Number of samples to draw, including burn-in.
 - `alg`: AdaptiveMCMC.jl sampler, provided as `Alg(x0; kwargs...)`. The following adaptive
   samplers are supported:
   - `RobustAdaptiveMetropolis` (recommended): Robust Adaptive Metropolis (RAM) [1].
@@ -22,6 +19,9 @@ keyword arguments.
   - `AdaptiveScalingMetropolis`: Adaptive Scaling Metropolis (ASM) [3].
   - `AdaptiveScalingWithinAdaptiveMetropolis`: Adaptive scaling within adaptive
     Metropolis [3].
+- `n_samples`: Number of samples to draw, including burn-in.
+- `x0`: Initial parameter vector on the PEtab estimation scale, for example the output from
+  `get_x(petab_prob)`. Can be a `Vector` or `ComponentArray`.
 
 # Keyword arguments
 Keyword arguments are passed to `adaptive_rwm`; see
@@ -33,15 +33,15 @@ Keyword arguments are passed to `adaptive_rwm`; see
 3. Andrieu, Christophe, and Johannes Thoms. "A tutorial on adaptive MCMC." *Statistics and Computing* 18.4 (2008): 343-373.
 """
 function sample(
-        log_target::PEtabBayesLogDensity, x0::PEtabBayes.InputVector, n_samples::Integer,
-        alg; kwargs...
+        log_target::PEtabBayesLogDensity, alg, n_samples::Integer,
+        x0::PEtabBayes.InputVector; kwargs...
     )
     @argcheck n_samples > 0
-    return _sample(log_target, x0, n_samples, alg; kwargs...)
+    return _sample(log_target, alg, n_samples, x0; kwargs...)
 end
 """
     sample(
-        log_target::PEtabLogDensity, x0, n_samples, alg::HMCSampler; kwargs...
+        log_target::PEtabLogDensity, alg::HMCSampler, n_samples, x0; kwargs...
     )
 
 Draw `n_samples` from the posterior defined by `log_target`, starting from `x0`, using the
@@ -50,7 +50,7 @@ Hamiltonian Monte Carlo sampler `alg` from AdvancedHMC.jl. Returns an `MCMCChain
 This is a wrapper around `AdvancedHMC.sample` from
 [AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl).
 
-`log_target`, `x0`, and `n_samples` have the same meaning as in
+`log_target` and `x0` have the same meaning as in
 `sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`.
 
 # Arguments
@@ -58,6 +58,7 @@ This is a wrapper around `AdvancedHMC.sample` from
   - `NUTS` (recommended): No-U-Turn Sampler.
   - `HMC`: Hamiltonian Monte Carlo.
   - `HMCDA`: Hamiltonian Monte Carlo with dual averaging.
+- `n_samples`: Number of samples to draw, excluding burn-in.
 
 # Keyword arguments
 Keyword arguments are passed to `AdvancedHMC.sample`. Supported keyword arguments are:
