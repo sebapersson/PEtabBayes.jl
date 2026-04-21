@@ -8,27 +8,19 @@ include(joinpath(@__DIR__, "common.jl"))
     _sigma = PEtabParameter(:sigma, value = 0.03, lb = 1.0e-3, ub = 1.0e2, scale = :lin)
     pest = [_b1, _b2, _sigma]
     prob = get_prob_saturated(pest)
+    log_target = PEtabBayesLogDensity(prob)
+    x0 = get_x(prob)
+
     # Reference chain based on 10,000 iterations
     reference_stats = get_reference_stats(
         joinpath(@__DIR__, "inference_results", "Saturated_chain.csv")
     )
 
-    # HMC inference case
-    Random.seed!(123)
-    target = PEtabBayesLogDensity(prob)
-    sampler = NUTS(0.8)
-    xprior = PEtabBayes.to_prior_scale(prob.xnominal_transformed, target)
-    xinference = target.inference_info.bijectors(xprior)
-    res = AdvancedHMC.sample(
-        target, sampler,
-        3000;
-        n_adapts = 1000,
-        initial_params = xinference,
-        drop_warmup = true,
-        progress = false,
-        verbose = true
+    # HMC inference
+    chain_hmc = PEtabBayes.sample(
+        log_target, x0, 3000, NUTS(0.8); n_adapts = 1000, drop_warmup = true,
+        progress = false, verbose = true
     )
-    chain_hmc = PEtabBayes.to_chains(res, target)
     hmc_stats = summarystats(chain_hmc)
     @testset "HMC" begin
         @test reference_stats.nt.mean[1] ≈ hmc_stats.nt.mean[1] atol = 2.0e-1
@@ -41,9 +33,8 @@ include(joinpath(@__DIR__, "common.jl"))
 
     # AdaptiveMCMC
     Random.seed!(1234)
-    x0 = get_x(prob)
     chain_adapt1 = PEtabBayes.sample(
-        target, x0, 200000, RobustAdaptiveMetropolis(x0); progress = false
+        log_target, x0, 200000, RobustAdaptiveMetropolis(x0); progress = false
     )
     adaptive_stats1 = summarystats(chain_adapt1)
     @testset "Adaptive MCMC RAM" begin
@@ -56,7 +47,7 @@ include(joinpath(@__DIR__, "common.jl"))
     end
     # Test other adaptive MCMC sampler
     chain_adapt2 = PEtabBayes.sample(
-        target, x0, 200000, AdaptiveMetropolis(x0)
+        log_target, x0, 200000, AdaptiveMetropolis(x0)
     )
     adaptive_stats2 = summarystats(chain_adapt2)
     @testset "Adaptive MCMC AM" begin

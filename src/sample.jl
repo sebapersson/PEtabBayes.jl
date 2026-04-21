@@ -40,9 +40,32 @@ function sample(
     return _sample(log_target, x0, n_samples, alg; kwargs...)
 end
 """
-    sample(log_target)
+    sample(
+        log_target::PEtabLogDensity, x0, n_samples, alg::HMCSampler; kwargs...
+    )
 
-Here options can be added for the AdvancedHMC end.
+Draw `n_samples` from the posterior defined by `log_target`, starting from `x0`, using the
+Hamiltonian Monte Carlo sampler `alg` from AdvancedHMC.jl. Returns an `MCMCChains.Chains`.
+
+This is a wrapper around `AdvancedHMC.sample` from
+[AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl).
+
+`log_target`, `x0`, and `n_samples` have the same meaning as in
+`sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`.
+
+# Arguments
+- `alg`: AdvancedHMC.jl sampler. The following samplers are supported:
+  - `NUTS` (recommended): No-U-Turn Sampler.
+  - `HMC`: Hamiltonian Monte Carlo.
+  - `HMCDA`: Hamiltonian Monte Carlo with dual averaging.
+
+# Keyword arguments
+Keyword arguments are passed to `AdvancedHMC.sample`. Supported keyword arguments are:
+
+- `n_adapts::Int = min(div(n_samples, 10), 1_000)`: Number of adaptation steps.
+- `drop_warmup::Bool = true`: Whether to drop warmup samples.
+- `verbose::Bool = false`: Whether to print sampler output.
+- `progress::Bool = false`: Whether to show a progress meter.
 """
 function sample(log_target::PEtabBayesLogDensity; kwargs...)
 end

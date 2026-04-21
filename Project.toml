@@ -18,6 +18,7 @@ SimpleUnPack = "ce78b400-467f-4804-87d8-8f486da07d0a"
 
 [weakdeps]
 AdaptiveMCMC = "717c3277-546c-407d-8270-09a39a0919a0"
+AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
 
 [compat]
 AdaptiveMCMC = "0.1.4"
@@ -44,6 +45,7 @@ julia = "1.10"
 
 [extensions]
 PEtabBayesAdaptiveMCMCExt = ["AdaptiveMCMC"]
+PEtabBayesAdvancedHMCExt = ["AdvancedHMC"]
 
 [extras]
 AdaptiveMCMC = "717c3277-546c-407d-8270-09a39a0919a0"
