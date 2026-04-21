@@ -34,8 +34,7 @@ function to_chains(
     end
 end
 
-
-function to_chains(
+function _to_chains_adaptive_mcmc(
         res::NamedTuple, target::PEtabBayesLogDensity; start_time = nothing,
         end_time = nothing
     )

@@ -1,9 +1,13 @@
-using SafeTestsets, PEtabBayes
+using SafeTestsets
 
 @safetestset "Bijectors" begin
     include("bijectors.jl")
 end
 
-@safetestset "Bayesian Inference" begin
+@safetestset "Bayesian inference" begin
     include("inference.jl")
+end
+
+@safetestset "Error throwing" begin
+    include("throw.jl")
 end
