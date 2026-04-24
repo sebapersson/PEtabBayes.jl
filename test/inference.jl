@@ -1,48 +1,6 @@
-using PEtab, PEtabBayes, OrdinaryDiffEqRosenbrock, Distributions, Random, DataFrames, CSV,
-    MCMCChains, Test, AdaptiveMCMC, AdvancedHMC, ModelingToolkitBase, LogDensityProblems
-using ModelingToolkitBase: t_nounits as t, D_nounits as D
+using PEtabBayes, Distributions, Random, Test, AdaptiveMCMC, AdvancedHMC, LogDensityProblems
 
-function get_reference_stats(path_data)
-    # Reference chain 10000 samples via Turing of HMC
-    chain_reference_df = CSV.read(path_data, DataFrame)
-    _chain_reference = Array{Float64, 3}(undef, 10000, 3, 1)
-    _chain_reference[:, :, 1] .= Matrix(chain_reference_df)
-    chain_reference = MCMCChains.Chains(_chain_reference)
-    reference_stats = summarystats(chain_reference)
-    return reference_stats
-end
-
-function get_prob_saturated(pest)::PEtabODEProblem
-    sps = @variables x(t) = 0.0
-    ps = @parameters b1 b2
-    eqs = [D(x) ~ b2 * (b1 - x)]
-    @named sys_model = System(eqs, t, sps, ps)
-    sys = mtkcompile(sys_model)
-
-    Random.seed!(1234)
-    # Simulate the model
-    parameter_map = [:b1 => 1.0, :b2 => 0.2]
-    u0_map = [:x => 0.0]
-    oprob = ODEProblem(sys, merge(Dict(u0_map), Dict(parameter_map)), (0.0, 2.5))
-    tsave = collect(range(0.0, 2.5, 101))
-    _sol = solve(
-        oprob, Rodas5P(), abstol = 1.0e-12, reltol = 1.0e-12, saveat = tsave, tstops = tsave
-    )
-    obs = _sol[:x] .+ rand(Normal(0.0, 0.03), length(tsave))
-
-    ## Setup the parameter estimation problem
-    @parameters sigma
-    observables = PEtabObservable(:obs_X, :x, sigma)
-
-    measurements = DataFrame(
-        obs_id = "obs_X", time = _sol.t, measurement = obs
-    )
-
-    model = PEtabModel(sys, observables, measurements, pest; verbose = false)
-    return PEtabODEProblem(
-        model; odesolver = ODESolver(Rodas5P(), abstol = 1.0e-6, reltol = 1.0e-6)
-    )
-end
+include(joinpath(@__DIR__, "common.jl"))
 
 @testset "Check inference linear priors + parameters" begin
     _b1 = PEtabParameter(:b1, value = 1.0, lb = 0.0, ub = 5.0, scale = :lin)
@@ -50,27 +8,19 @@ end
     _sigma = PEtabParameter(:sigma, value = 0.03, lb = 1.0e-3, ub = 1.0e2, scale = :lin)
     pest = [_b1, _b2, _sigma]
     prob = get_prob_saturated(pest)
+    log_target = PEtabBayesLogDensity(prob)
+    x0 = get_x(prob)
+
     # Reference chain based on 10,000 iterations
     reference_stats = get_reference_stats(
         joinpath(@__DIR__, "inference_results", "Saturated_chain.csv")
     )
 
-    # HMC inference case
-    Random.seed!(123)
-    target = PEtabBayesLogDensity(prob)
-    sampler = NUTS(0.8)
-    xprior = PEtabBayes.to_prior_scale(prob.xnominal_transformed, target)
-    xinference = target.inference_info.bijectors(xprior)
-    res = sample(
-        target, sampler,
-        3000;
-        n_adapts = 1000,
-        initial_params = xinference,
-        drop_warmup = true,
-        progress = false,
-        verbose = true
+    # HMC inference
+    chain_hmc = PEtabBayes.sample(
+        log_target, NUTS(0.8), 3000, x0; n_adapts = 1000, drop_warmup = true,
+        progress = false, verbose = true
     )
-    chain_hmc = PEtabBayes.to_chains(res, target)
     hmc_stats = summarystats(chain_hmc)
     @testset "HMC" begin
         @test reference_stats.nt.mean[1] ≈ hmc_stats.nt.mean[1] atol = 2.0e-1
@@ -83,19 +33,27 @@ end
 
     # AdaptiveMCMC
     Random.seed!(1234)
-    log_target = let p = target
-        x -> LogDensityProblems.logdensity(p, x)
+    chain_adapt1 = PEtabBayes.sample(
+        log_target, RobustAdaptiveMetropolis(x0), 200000, x0; progress = false
+    )
+    adaptive_stats1 = summarystats(chain_adapt1)
+    @testset "Adaptive MCMC RAM" begin
+        @test reference_stats.nt.mean[1] ≈ adaptive_stats1.nt.mean[1] atol = 2.0e-1
+        @test reference_stats.nt.mean[2] ≈ adaptive_stats1.nt.mean[2] atol = 1.0e-2
+        @test reference_stats.nt.mean[3] ≈ adaptive_stats1.nt.mean[3] atol = 1.0e-2
+        @test reference_stats.nt.std[1] ≈ adaptive_stats1.nt.std[1] atol = 5.0e-1
+        @test reference_stats.nt.std[2] ≈ adaptive_stats1.nt.std[2] atol = 1.0e-2
+        @test reference_stats.nt.std[3] ≈ adaptive_stats1.nt.std[3] atol = 1.0e-2
     end
-    target = PEtabBayesLogDensity(prob)
-    res = adaptive_rwm(xinference, log_target, 200000; progress = false)
-    chain_adapt = PEtabBayes.to_chains(res, target)
-    adaptive_stats = summarystats(chain_adapt)
-    @testset "Adaptive MCMC" begin
-        @test reference_stats.nt.mean[1] ≈ adaptive_stats.nt.mean[1] atol = 2.0e-1
-        @test reference_stats.nt.mean[2] ≈ adaptive_stats.nt.mean[2] atol = 1.0e-2
-        @test reference_stats.nt.mean[3] ≈ adaptive_stats.nt.mean[3] atol = 1.0e-2
-        @test reference_stats.nt.std[1] ≈ adaptive_stats.nt.std[1] atol = 5.0e-1
-        @test reference_stats.nt.std[2] ≈ adaptive_stats.nt.std[2] atol = 1.0e-2
-        @test reference_stats.nt.std[3] ≈ adaptive_stats.nt.std[3] atol = 1.0e-2
+    # Test other adaptive MCMC sampler
+    chain_adapt2 = PEtabBayes.sample(log_target, AdaptiveMetropolis(x0), 200000, x0)
+    adaptive_stats2 = summarystats(chain_adapt2)
+    @testset "Adaptive MCMC AM" begin
+        @test reference_stats.nt.mean[1] ≈ adaptive_stats2.nt.mean[1] atol = 2.0e-1
+        @test reference_stats.nt.mean[2] ≈ adaptive_stats2.nt.mean[2] atol = 1.0e-2
+        @test reference_stats.nt.mean[3] ≈ adaptive_stats2.nt.mean[3] atol = 1.0e-2
+        @test reference_stats.nt.std[1] ≈ adaptive_stats2.nt.std[1] atol = 5.0e-1
+        @test reference_stats.nt.std[2] ≈ adaptive_stats2.nt.std[2] atol = 1.0e-2
+        @test reference_stats.nt.std[3] ≈ adaptive_stats2.nt.std[3] atol = 1.0e-2
     end
 end
