@@ -11,3 +11,7 @@ end
 @safetestset "Error throwing" begin
     include("throw.jl")
 end
+
+@safetestset "Show and Describe" begin
+    include("show.jl")
+end
