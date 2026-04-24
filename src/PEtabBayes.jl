@@ -3,13 +3,13 @@ module PEtabBayes
 import ArgCheck: @argcheck
 import Bijectors
 using ComponentArrays: ComponentArray, labels
-using Distributions: Distribution, Univariate, Continuous, Uniform, logpdf
+using Distributions: Distribution, Univariate, Continuous, Uniform, logpdf, params
 using LogDensityProblems: LogDensityProblems, LogDensityOrder
 import ForwardDiff
 using MCMCChains: Chains, setinfo
 using PEtab: PEtab, PEtabODEProblem
 using SimpleUnPack: @unpack
-using StyledStrings
+import StyledStrings
 using Printf: @sprintf
 
 const ContDistribution = Distribution{Univariate, Continuous}

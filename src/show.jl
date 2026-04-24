@@ -10,9 +10,9 @@ function show(io::IO, logdensity::PEtabBayesLogDensity)
     @unpack prob, dim = logdensity
     name = prob.model_info.model.name
     nest = @sprintf("%d", dim)
-    header = styled"{PURPLE:{bold:PEtabBayesLogDensity}} {emphasis:$(name)}: $nest parameters \
-        to estimate\n(for more statistics, call `describe(logdensity)`)"
-    return print(io, styled"$(header)")
+    header = StyledStrings.StyledMarkup.styled"{PURPLE:{bold:PEtabBayesLogDensity}} {emphasis:$(name)}: $nest parameters \
+        to infer\n(for more statistics, call `describe(logdensity)`)"
+    return print(io, StyledStrings.StyledMarkup.styled"$(header)")
 end
 
 """
@@ -35,15 +35,28 @@ function _describe(logdensity::PEtabBayesLogDensity; styled::Bool = true)
     n_observables = length(unique(model.petab_tables[:measurements].observableId))
     n_conditions = length(prob.model_info.simulation_info.conditionids[:experiment])
 
-    header = styled"{PURPLE:{bold:PEtabBayesLogDensity}} {emphasis:$(name)}\n"
-    opt_head = styled"{underline:Problem statistics}\n"
+    header = StyledStrings.StyledMarkup.styled"{PURPLE:{bold:PEtabBayesLogDensity}} {emphasis:$(name)}\n"
+    opt_head = StyledStrings.StyledMarkup.styled"{underline:Problem statistics}\n"
     opt1 = "  Parameters to estimate: $nest\n"
     opt2 = "  ODE: $nstates states, $nparameters parameters\n"
     opt3 = "  Observables: $(n_observables)\n"
     opt4 = "  Simulation conditions: $(n_conditions)\n"
-    model_stat = styled"$(opt_head)$(opt1)$(opt2)$(opt3)$(opt4)\n"
+    model_stat = StyledStrings.StyledMarkup.styled"$(opt_head)$(opt1)$(opt2)$(opt3)$(opt4)\n"
 
-    opt_head = styled"{underline:Inference setup}\n"
+    opt_head = StyledStrings.StyledMarkup.styled"{underline:Inference setup}\n"
+    opt1 = "  Parameters scale : $(inference_info.parameters_scale)\n"
+    opt2 = "  Inference dimension: $nest\n"
+    comp_stat = StyledStrings.StyledMarkup.styled"$(opt_head)$(opt1)$(opt2)"
+
+    if styled
+        return StyledStrings.StyledMarkup.styled"$(header)$(model_stat)$(comp_stat)"
+    else
+        return "$(header)$(model_stat)$(comp_stat)"
+    end
+end
+
+function priors(logdensity::PEtabBayesLogDensity)
+    @unpack inference_info, dim, f_prior_correction, prob = logdensity
     function _format_prior(prior)
         name = Base.typename(typeof(prior)).name
         param_names = fieldnames(typeof(prior))
@@ -52,14 +65,8 @@ function _describe(logdensity::PEtabBayesLogDensity; styled::Bool = true)
         return "$name($param_str)"
     end
     priors_formatted = join(["    $(inference_info.parameters_id[i]): $(_format_prior(inference_info.priors[i])) :: $(inference_info.priors_scale[i])" for i in eachindex(inference_info.priors)], "\n")
-    opt1 = "  Priors :\n$(priors_formatted)\n"
-    opt2 = "  Parameters scale : $(inference_info.parameters_scale)\n"
-    opt3 = "  Inference dimension: $nest\n"
-    comp_stat = styled"$(opt_head)$(opt1)$(opt2)$(opt3)"
+    priors_stat = "  Priors :\n$(priors_formatted)\n"
 
-    if styled
-        return styled"$(header)$(model_stat)$(comp_stat)"
-    else
-        return "$(header)$(model_stat)$(comp_stat)"
-    end
+    return StyledStrings.StyledMarkup.styled"$(priors_stat)"
+
 end

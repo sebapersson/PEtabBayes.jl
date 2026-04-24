@@ -2,37 +2,7 @@ using PEtab, PEtabBayes, OrdinaryDiffEqRosenbrock, Distributions, Random, DataFr
     ModelingToolkitBase, IOCapture
 using ModelingToolkitBase: t_nounits as t, D_nounits as D
 
-function get_prob_saturated(pest)::PEtabODEProblem
-    sps = @variables x(t) = 0.0
-    ps = @parameters b1 b2
-    eqs = [D(x) ~ b2 * (b1 - x)]
-    @named sys_model = System(eqs, t, sps, ps)
-    sys = mtkcompile(sys_model)
-
-    Random.seed!(1234)
-    # Simulate the model
-    parameter_map = [:b1 => 1.0, :b2 => 0.2]
-    u0_map = [:x => 0.0]
-    oprob = ODEProblem(sys, merge(Dict(u0_map), Dict(parameter_map)), (0.0, 2.5))
-    tsave = collect(range(0.0, 2.5, 101))
-    _sol = solve(
-        oprob, Rodas5P(), abstol = 1.0e-12, reltol = 1.0e-12, saveat = tsave, tstops = tsave
-    )
-    obs = _sol[:x] .+ rand(Normal(0.0, 0.03), length(tsave))
-
-    ## Setup the parameter estimation problem
-    @parameters sigma
-    observables = PEtabObservable(:obs_X, :x, sigma)
-
-    measurements = DataFrame(
-        obs_id = "obs_X", time = _sol.t, measurement = obs
-    )
-
-    model = PEtabModel(sys, observables, measurements, pest; verbose = false)
-    return PEtabODEProblem(
-        model; odesolver = ODESolver(Rodas5P(), abstol = 1.0e-6, reltol = 1.0e-6)
-    )
-end
+include(joinpath(@__DIR__, "common.jl"))
 
 @testset "Show and Describe" begin
     _b1 = PEtabParameter(:b1, value = 1.0, lb = 0.0, ub = 5.0, scale = :lin)
@@ -73,5 +43,15 @@ end
         # Test non-styled version
         output_plain = PEtabBayes._describe(target; styled = false)
         @test !isempty(output_plain)
+    end
+
+    @testset "priors() function" begin
+        output = PEtabBayes.priors(target)
+        print(output)
+        @test !isempty(output)
+        @test contains(output, "Priors")
+        @test contains(output, "b1")
+        @test contains(output, "b2")
+        @test contains(output, "sigma")
     end
 end
