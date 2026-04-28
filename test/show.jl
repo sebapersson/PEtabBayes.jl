@@ -13,45 +13,38 @@ include(joinpath(@__DIR__, "common.jl"))
     target = PEtabBayesLogDensity(prob)
 
     @testset "show() function" begin
-        # Test that show produces non-empty output
-        io = IOBuffer()
-        show(io, target)
-        output = String(take!(io))
-        print(output)
-        @test !isempty(output)
-        @test contains(output, "PEtabBayesLogDensity")
-        @test contains(output, "3 parameters")
+        @test "$target" ==
+            "PEtabBayesLogDensity ODESystemModel: 3 parameters to infer\n" *
+            "(for more statistics, call `describe(logdensity)`)\n"
     end
 
     @testset "describe() function" begin
-        # Capture output from describe(target)
-        PEtabBayes.describe(target)
         c = IOCapture.capture() do
             PEtabBayes.describe(target)
         end
-        @test !isempty(c.output)
-        @test contains(c.output, "PEtabBayesLogDensity")
-        @test contains(c.output, "Problem statistics")
-        @test contains(c.output, "Inference setup")
+
+        expected =
+            "PEtabBayesLogDensity ODESystemModel\n" *
+            "Problem statistics\n" *
+            "  Parameters to estimate: 3\n" *
+            "  ODE: 1 states, 2 parameters\n" *
+            "  Observables: 1\n" *
+            "  Simulation conditions: 1\n" *
+            "\n" *
+            "Inference setup\n" *
+            "  Parameters scale : [:lin, :lin, :lin]\n" *
+            "  Inference dimension: 3\n"
+
+        @test c.output == expected
     end
 
-    @testset "_describe internal function" begin
-        # Test styled version
-        output_styled = PEtabBayes._describe(target; styled = true)
-        @test !isempty(output_styled)
+    @testset "parameters() function" begin
+        expected =
+            "  Priors :\n" *
+            "    b1: Uniform(a=0.0, b=5.0) :: lin\n" *
+            "    b2: Uniform(a=0.0, b=5.0) :: lin\n" *
+            "    sigma: Uniform(a=0.001, b=100.0) :: lin\n"
 
-        # Test non-styled version
-        output_plain = PEtabBayes._describe(target; styled = false)
-        @test !isempty(output_plain)
-    end
-
-    @testset "priors() function" begin
-        output = PEtabBayes.priors(target)
-        print(output)
-        @test !isempty(output)
-        @test contains(output, "Priors")
-        @test contains(output, "b1")
-        @test contains(output, "b2")
-        @test contains(output, "sigma")
+        @test "$(PEtabBayes.parameters(target))" == expected
     end
 end

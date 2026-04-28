@@ -11,7 +11,7 @@ function show(io::IO, logdensity::PEtabBayesLogDensity)
     name = prob.model_info.model.name
     nest = @sprintf("%d", dim)
     header = StyledStrings.StyledMarkup.styled"{PURPLE:{bold:PEtabBayesLogDensity}} {emphasis:$(name)}: $nest parameters \
-        to infer\n(for more statistics, call `describe(logdensity)`)"
+        to infer\n(for more statistics, call `describe(logdensity)`)\n"
     return print(io, StyledStrings.StyledMarkup.styled"$(header)")
 end
 
@@ -55,7 +55,7 @@ function _describe(logdensity::PEtabBayesLogDensity; styled::Bool = true)
     end
 end
 
-function priors(logdensity::PEtabBayesLogDensity)
+function parameters(logdensity::PEtabBayesLogDensity)
     @unpack inference_info, dim, f_prior_correction, prob = logdensity
     function _format_prior(prior)
         name = Base.typename(typeof(prior)).name
