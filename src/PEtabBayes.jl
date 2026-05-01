@@ -25,6 +25,6 @@ include("prior.jl")
 include("sample.jl")
 include("show.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, sample, describe
+export PEtabBayesLogDensity, to_prior_scale, sample, describe, parameters
 
 end
