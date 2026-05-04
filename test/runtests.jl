@@ -11,3 +11,7 @@ end
 @safetestset "Error throwing" begin
     include("throw.jl")
 end
+
+@safetestset "Multipathfinder wrapper" begin
+    include("multipathfinder.jl")
+end

@@ -22,7 +22,8 @@ include("log_density_problem.jl")
 include("mcmc_chains.jl")
 include("prior.jl")
 include("sample.jl")
+include("pathfinder.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, sample
+export PEtabBayesLogDensity, to_prior_scale, sample, multipathfinder
 
 end
