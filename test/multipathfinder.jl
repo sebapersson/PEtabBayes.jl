@@ -8,7 +8,7 @@ using LogDensityProblems
 
 include(joinpath(@__DIR__, "common.jl"))
 
-@testset "PEtabBayes.multipathfinder wrapper" begin
+@testset "PEtabBayes multipathfinder wrapper" begin
     rng = Random.default_rng()
 
     _b1 = PEtabParameter(:b1, value = 1.0, lb = 0.0, ub = 5.0, scale = :lin)
@@ -95,4 +95,114 @@ include(joinpath(@__DIR__, "common.jl"))
             "not an optimizer",
         )
     end
+    @testset "multipathfinder sampling" begin
+        ndraws_new = 20
+        ndraws_per_run = 15
+        rng = Random.default_rng()
+
+        # First create an existing MultiPathfinderResult
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+
+        result = PEtabBayes.multipathfinder(
+            log_target,
+            10,
+            init;
+            nruns = 10,
+        )
+
+        @test result isa Pathfinder.MultiPathfinderResult
+
+        @testset "samples new draws with importance resampling" begin
+            sample = PEtabBayes.sample_new_multipathfinder_draws(
+                result,
+                ndraws_new;
+                rng = rng,
+                ndraws_per_run = ndraws_per_run,
+                importance = true,
+            )
+
+            @test sample isa NamedTuple
+            @test hasproperty(sample, :draws)
+            @test hasproperty(sample, :draw_component_ids)
+            @test hasproperty(sample, :psis_result)
+            @test hasproperty(sample, :proposal_draws)
+            @test hasproperty(sample, :proposal_component_ids)
+
+            dim = LogDensityProblems.dimension(log_target)
+            nruns = length(result.pathfinder_results)
+
+            @test size(sample.draws) == (dim, ndraws_new)
+            @test length(sample.draw_component_ids) == ndraws_new
+            @test all(1 .<= sample.draw_component_ids .<= nruns)
+            @test all(isfinite, sample.draws)
+
+            @test size(sample.proposal_draws) == (dim, ndraws_per_run * nruns)
+            @test length(sample.proposal_component_ids) == ndraws_per_run * nruns
+            @test all(1 .<= sample.proposal_component_ids .<= nruns)
+            @test all(isfinite, sample.proposal_draws)
+
+            @test sample.psis_result !== nothing
+        end
+
+        @testset "samples new draws without importance resampling" begin
+            sample = PEtabBayes.sample_new_multipathfinder_draws(
+                result,
+                ndraws_new;
+                rng = Random.default_rng(),
+                ndraws_per_run = ndraws_per_run,
+                importance = false,
+            )
+
+            dim = LogDensityProblems.dimension(log_target)
+            nruns = length(result.pathfinder_results)
+
+            @test size(sample.draws) == (dim, ndraws_new)
+            @test length(sample.draw_component_ids) == ndraws_new
+            @test all(1 .<= sample.draw_component_ids .<= nruns)
+            @test all(isfinite, sample.draws)
+
+            @test size(sample.proposal_draws) == (dim, ndraws_per_run * nruns)
+            @test length(sample.proposal_component_ids) == ndraws_per_run * nruns
+            @test all(isfinite, sample.proposal_draws)
+
+            @test sample.psis_result === nothing
+        end
+
+        @testset "rejects invalid draw counts" begin
+            @test_throws ArgumentError PEtabBayes.sample_new_multipathfinder_draws(
+                result,
+                0,
+            )
+
+            @test_throws ArgumentError PEtabBayes.sample_new_multipathfinder_draws(
+                result,
+                10;
+                ndraws_per_run = 0,
+            )
+        end
+
+        @testset "new proposal draws are reproducible with fixed RNG" begin
+            sample1 = PEtabBayes.sample_new_multipathfinder_draws(
+                result,
+                ndraws_new;
+                rng = Random.MersenneTwister(1),
+                ndraws_per_run = ndraws_per_run,
+                importance = false,
+            )
+
+            sample2 = PEtabBayes.sample_new_multipathfinder_draws(
+                result,
+                ndraws_new;
+                rng = Random.MersenneTwister(1),
+                ndraws_per_run = ndraws_per_run,
+                importance = false,
+            )
+
+            @test sample1.draws == sample2.draws
+            @test sample1.draw_component_ids == sample2.draw_component_ids
+            @test sample1.proposal_draws == sample2.proposal_draws
+            @test sample1.proposal_component_ids == sample2.proposal_component_ids
+        end
+    end
+
 end
