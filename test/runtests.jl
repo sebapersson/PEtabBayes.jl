@@ -12,6 +12,10 @@ end
     include("throw.jl")
 end
 
+@safetestset "Show and Describe" begin
+    include("show.jl")
+end
+
 @safetestset "Multipathfinder wrapper" begin
     include("multipathfinder.jl")
 end
