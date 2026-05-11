@@ -25,7 +25,9 @@ include("prior.jl")
 include("sample.jl")
 include("show.jl")
 include("pathfinder.jl")
+include("advanced_vi.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, sample, describe, parameters, multipathfinder
+export PEtabBayesLogDensity, to_prior_scale, sample, describe, parameters, multipathfinder,
+    optimize
 
 end

@@ -25,14 +25,18 @@ StyledStrings = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 [weakdeps]
 AdaptiveMCMC = "717c3277-546c-407d-8270-09a39a0919a0"
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
+AdvancedVI = "b5ca4192-6429-45e5-a2d9-87aec30a685c"
 
 [extensions]
 PEtabBayesAdaptiveMCMCExt = ["AdaptiveMCMC"]
 PEtabBayesAdvancedHMCExt = ["AdvancedHMC"]
+PEtabBayesAdvancedVIExt = ["AdvancedVI"]
 
 [compat]
+ADTypes = "1"
 AdaptiveMCMC = "0.1.4"
 AdvancedHMC = "0.8.3"
+AdvancedVI = "0.6"
 ArgCheck = "2.5.0"
 Bijectors = "0.15.18"
 CSV = "0.10.16"
@@ -54,24 +58,33 @@ OrdinaryDiffEqRosenbrock = "1.25.0"
 PEtab = "5"
 Printf = "1"
 Pathfinder = "0.9.31"
+Optimisers = "0.4"
 Random = "1.10.0"
+ReverseDiff = "1"
 SimpleUnPack = "1.1.0"
+Statistics = "1"
 StyledStrings = "1"
 julia = "1.10"
 
 [extras]
+ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 AdaptiveMCMC = "717c3277-546c-407d-8270-09a39a0919a0"
 AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
+AdvancedVI = "b5ca4192-6429-45e5-a2d9-87aec30a685c"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 IOCapture = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 ModelingToolkitBase = "7771a370-6774-4173-bd38-47e70ca0b839"
 OrdinaryDiffEqRosenbrock = "43230ef6-c299-4910-a778-202eb28ce4ce"
+Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["AdaptiveMCMC", "AdvancedHMC", "Catalyst", "CSV", "DataFrames", "FiniteDifferences", "IOCapture", "OrdinaryDiffEqRosenbrock", "ModelingToolkitBase", "Random", "SafeTestsets", "Test"]
+test = ["ADTypes", "AdaptiveMCMC", "AdvancedHMC", "AdvancedVI", "Catalyst", "CSV", "DataFrames", "FiniteDifferences", "IOCapture", "LinearAlgebra", "OrdinaryDiffEqRosenbrock", "ModelingToolkitBase", "Optimisers", "Random", "ReverseDiff", "SafeTestsets", "Statistics", "Test"]
