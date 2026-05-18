@@ -44,6 +44,51 @@ include(joinpath(@__DIR__, "common.jl"))
         test_multipathfinder_result(result, ndraws, dim)
     end
 
+    @testset "wrapper matches Pathfinder.multipathfinder" begin
+        function default_optimizer()
+            return Optim.LBFGS(
+                m = Pathfinder.DEFAULT_HISTORY_LENGTH,
+                linesearch = LineSearches.BackTracking(),
+                alphaguess = LineSearches.InitialHagerZhang(),
+            )
+        end
+
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+        wrapper_init = deepcopy(init)
+        direct_init = deepcopy(init)
+
+        inference_info = log_target.inference_info
+        for i in eachindex(direct_init)
+            _x = PEtabBayes.to_prior_scale(direct_init[i], log_target)
+            direct_init[i] .= inference_info.bijectors(_x)
+        end
+
+        wrapper_result = PEtabBayes.multipathfinder(
+            log_target,
+            ndraws,
+            wrapper_init,
+            default_optimizer();
+            rng = Random.MersenneTwister(1),
+        )
+
+        direct_result = Pathfinder.multipathfinder(
+            log_target,
+            ndraws;
+            init = direct_init,
+            init_sampler = (rng, x) -> PEtabBayes._petab_prior_sampler(
+                rng,
+                x,
+                log_target,
+            ),
+            optimizer = default_optimizer(),
+            rng = Random.MersenneTwister(1),
+        )
+
+        @test wrapper_result.draws ≈ direct_result.draws
+        @test length(wrapper_result.pathfinder_results) ==
+            length(direct_result.pathfinder_results)
+    end
+
     @testset "Explicit init and user provided optimizer" begin
         init = PEtab.get_startguesses(petab_prob, 10) .|> collect
 
