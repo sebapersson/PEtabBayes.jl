@@ -5,8 +5,7 @@ import Random
 import Distributions
 
 function _petab_prior_sampler(
-        rng::Random.AbstractRNG,
-        x,
+        rng::Random.AbstractRNG, x,
         log_target::PEtabBayes.PEtabBayesLogDensity,
     )
     petab_prob = log_target.prob
@@ -35,34 +34,20 @@ function _to_petab_scale(
 end
 
 function _to_petab_scale(
-        result::Pathfinder.PathfinderResult,
-        inference_info::PEtabBayes.InferenceInfo,
+        result::Pathfinder.PathfinderResult, inference_info::PEtabBayes.InferenceInfo,
     )::Pathfinder.PathfinderResult
     draws = PEtabBayes._to_petab_scale(result.draws, inference_info)
 
     return Pathfinder.PathfinderResult(
-        result.input,
-        result.optimizer,
-        result.rng,
-        result.optim_prob,
-        result.logp,
-        result.fit_distribution,
-        draws,
-        result.fit_distribution_transformed,
-        draws,
-        result.fit_iteration,
-        result.num_tries,
-        result.optim_solution,
-        result.optim_trace,
-        result.fit_distributions,
-        result.elbo_estimates,
-        result.num_bfgs_updates_rejected,
+        result.input, result.optimizer, result.rng, result.optim_prob, result.logp,
+        result.fit_distribution, draws, result.fit_distribution_transformed, draws,
+        result.fit_iteration, result.num_tries, result.optim_solution, result.optim_trace,
+        result.fit_distributions, result.elbo_estimates, result.num_bfgs_updates_rejected,
     )
 end
 
 function _to_petab_scale(
-        result::Pathfinder.MultiPathfinderResult,
-        inference_info::PEtabBayes.InferenceInfo,
+        result::Pathfinder.MultiPathfinderResult, inference_info::PEtabBayes.InferenceInfo,
     )::Pathfinder.MultiPathfinderResult
     draws = PEtabBayes._to_petab_scale(result.draws, inference_info)
     pathfinder_results = map(result.pathfinder_results) do pathfinder_result
@@ -70,18 +55,9 @@ function _to_petab_scale(
     end
 
     return Pathfinder.MultiPathfinderResult(
-        result.input,
-        result.optimizer,
-        result.rng,
-        result.optim_fun,
-        result.logp,
-        result.fit_distribution,
-        draws,
-        result.draw_component_ids,
-        result.fit_distribution_transformed,
-        draws,
-        pathfinder_results,
-        result.psis_result,
+        result.input, result.optimizer, result.rng, result.optim_fun, result.logp,
+        result.fit_distribution, draws, result.draw_component_ids,
+        result.fit_distribution_transformed, draws, pathfinder_results, result.psis_result,
     )
 end
 
@@ -116,12 +92,9 @@ Keyword arguments are passed to `Pathfinder.multipathfinder`.
 """
 
 function multipathfinder(
-        log_target::PEtabBayes.PEtabBayesLogDensity,
-        ndraws::Int,
-        init = nothing,
+        log_target::PEtabBayes.PEtabBayesLogDensity, ndraws::Int, init = nothing,
         optimizer = Optim.LBFGS(
-            m = Pathfinder.DEFAULT_HISTORY_LENGTH,
-            linesearch = LineSearches.BackTracking(),
+            m = Pathfinder.DEFAULT_HISTORY_LENGTH, linesearch = LineSearches.BackTracking(),
             alphaguess = LineSearches.InitialHagerZhang(),
         );
         kwargs...
@@ -141,17 +114,12 @@ function multipathfinder(
     init_sampler = (rng, x) -> _petab_prior_sampler(rng, x, log_target)
 
     multi_pathfinder_result = Pathfinder.multipathfinder(
-        log_target,
-        ndraws;
-        init = init,
-        init_sampler = init_sampler,
-        optimizer = optimizer,
+        log_target, ndraws;
+        init = init, init_sampler = init_sampler, optimizer = optimizer,
         kwargs...
     )
 
-    return PEtabBayes._to_petab_scale(
-        multi_pathfinder_result, log_target.inference_info
-    )
+    return PEtabBayes._to_petab_scale(multi_pathfinder_result, log_target.inference_info)
 end
 
 function _logpdf_eachcol(dist, draws::AbstractMatrix)
@@ -222,8 +190,7 @@ When `result` was produced for a `PEtabBayesLogDensity`, returned `draws` and
 `proposal_draws` are transformed back to the PEtab parameter scale.
 """
 function sample_pathfinder_result(
-        result::Pathfinder.MultiPathfinderResult,
-        ndraws::Integer;
+        result::Pathfinder.MultiPathfinderResult, ndraws::Integer;
         rng::Random.AbstractRNG = result.rng,
         ndraws_per_run::Int = max(
             Pathfinder.DEFAULT_NDRAWS_ELBO,
