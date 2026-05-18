@@ -22,12 +22,11 @@ end
 
 """
     multipathfinder(
-        log_target::PEtabBayesLogDensity, ndraws::Int; kwargs...
+        log_target::PEtabBayesLogDensity, ndraws::Integer; kwargs...
     )
 
-Run multipathfinder from Pathfinder.jl to fit a multivariate normal mixture model to
-the target distribution defined by `log_target`. Draw `ndraws` approximate samples from the
-target distribution.
+Run Pathfinder.jl's multipathfinder [1] on `log_target` and draw `ndraws`
+approximate samples from the target distribution.
 
 This is a wrapper around `multipathfinder` from
 [Pathfinder.jl](https://github.com/mlcolab/Pathfinder.jl) and supports the same
@@ -36,16 +35,19 @@ keyword arguments.
 # Arguments
 - `log_target`: The log-density of the target distribution.
 - `ndraws`: Number of approximate draws to return.
-- `init`: Optional initial points for the optimization. If not provided, the initial points
-  will be sampled from the prior distribution of the PEtab problem.
-- `optimizer`: An optimizer from Optim.jl to use for the optimization. Defaults to LBFGS with
-  BackTracking linesearch instead of the default linesearch in Pathfinder.jl.
+- `init`: Optional initial points for the optimization. If not provided, the
+  initial points will be sampled from the prior distribution of the PEtab
+  problem.
+- `optimizer`: An optimizer from Optim.jl to use for the optimization. Defaults
+  to LBFGS with BackTracking linesearch instead of the default linesearch in
+  Pathfinder.jl.
 # Keyword arguments
-Keyword arguments are passed to `multipathfinder`; see
-[this page](https://mlcolab.github.io/Pathfinder.jl/stable/lib/public/#Multi-path-Pathfinder).
+Keyword arguments are passed to `Pathfinder.multipathfinder`.
 
 # References
-1. Zhang, Lu, Bob Carpenter, Andrew Gelman, and Aki Vehtari. "Pathfinder: Parallel quasi-Newton variational inference." *Journal of Machine Learning Research* 23.306 (2022): 1–49.
+1. Zhang, Lu, Bob Carpenter, Andrew Gelman, and Aki Vehtari. "Pathfinder:
+   Parallel quasi-Newton variational inference." *Journal of Machine Learning
+   Research* 23.306 (2022): 1-49.
 """
 
 function multipathfinder(
@@ -69,7 +71,8 @@ function multipathfinder(
         end
     end
 
-    # Define the initial sampler for Pathfinder, which samples from the prior distribution of the PEtab problem
+    # Define the initial sampler for Pathfinder, which samples from the prior
+    # distribution of the PEtab problem.
     init_sampler = (rng, x) -> _petab_prior_sampler(rng, x, log_target)
 
     multi_pathfinder_result = Pathfinder.multipathfinder(
@@ -88,11 +91,7 @@ function _logpdf_eachcol(dist, draws::AbstractMatrix)
     return [Distributions.logpdf(dist, @view draws[:, j]) for j in axes(draws, 2)]
 end
 
-function _rand_matrix(
-        rng::Random.AbstractRNG,
-        dist,
-        ndraws::Int,
-    )
+function _rand_matrix(rng::Random.AbstractRNG, dist, ndraws::Int)
     draws = rand(rng, dist, ndraws)
 
     # For a 1-dimensional target, rand may return a vector.
@@ -105,7 +104,7 @@ function _rand_matrix(
 end
 
 """
-    sample_new_multipathfinder_draws(result, ndraws; rng, ndraws_per_run, importance)
+    sample_pathfinder_result(result, ndraws; rng, ndraws_per_run, importance)
 
 Generate new draws from an existing `Pathfinder.MultiPathfinderResult`
 without rerunning the single-path Pathfinder optimization steps.
@@ -119,14 +118,14 @@ resampling step used internally by `Pathfinder.multipathfinder`.
 - `result::Pathfinder.MultiPathfinderResult`: Existing result returned by
   `Pathfinder.multipathfinder` or the PEtabBayes multipathfinder wrapper.
 
-- `ndraws::Int`: Number of final draws to return after optional resampling.
+- `ndraws::Integer`: Number of final draws to return after optional resampling.
 
 # Keyword arguments
 
 - `rng::Random.AbstractRNG = result.rng`: Random number generator used for
   sampling proposal draws and for resampling.
 
-- `ndraws_per_run::Int = max(Pathfinder.DEFAULT_NDRAWS_ELBO, cld(ndraws, max(length(result.pathfinder_results), 1)))`:
+- `ndraws_per_run::Int`:
   Number of fresh proposal draws to generate from each single-path Pathfinder
   approximation. The total number of proposal draws before resampling is
   `ndraws_per_run * length(result.pathfinder_results)`.
@@ -152,9 +151,9 @@ A named tuple with the fields:
 This function does not rerun the Pathfinder optimization. It only samples from
 the already fitted approximations stored in `result.pathfinder_results`.
 """
-function sample_new_multipathfinder_draws(
+function sample_pathfinder_result(
         result::Pathfinder.MultiPathfinderResult,
-        ndraws::Int;
+        ndraws::Integer;
         rng::Random.AbstractRNG = result.rng,
         ndraws_per_run::Int = max(
             Pathfinder.DEFAULT_NDRAWS_ELBO,
@@ -180,26 +179,18 @@ function sample_new_multipathfinder_draws(
 
     proposal_draws = reduce(hcat, proposal_draws_by_component)
 
-    proposal_component_ids = reduce(
-        vcat, [
-            fill(k, ndraws_per_run) for k in 1:nruns
-        ]
-    )
+    proposal_component_ids = reduce(vcat, [fill(k, ndraws_per_run) for k in 1:nruns])
 
     inds = axes(proposal_draws, 2)
 
     sample_inds, psis_result = if importance
         log_densities_fit = reduce(
-            vcat, map(
-                _logpdf_eachcol,
-                fit_distributions,
-                proposal_draws_by_component,
-            )
+            vcat,
+            map(_logpdf_eachcol, fit_distributions, proposal_draws_by_component),
         )
 
         log_densities_target = [
-            result.logp(@view proposal_draws[:, j])
-                for j in axes(proposal_draws, 2)
+            result.logp(@view proposal_draws[:, j]) for j in axes(proposal_draws, 2)
         ]
 
         log_densities_ratios = log_densities_target .- log_densities_fit

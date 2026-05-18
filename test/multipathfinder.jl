@@ -113,7 +113,7 @@ include(joinpath(@__DIR__, "common.jl"))
         @test result isa Pathfinder.MultiPathfinderResult
 
         @testset "samples new draws with importance resampling" begin
-            sample = PEtabBayes.sample_new_multipathfinder_draws(
+            sample = PEtabBayes.sample_pathfinder_result(
                 result,
                 ndraws_new;
                 rng = rng,
@@ -145,7 +145,7 @@ include(joinpath(@__DIR__, "common.jl"))
         end
 
         @testset "samples new draws without importance resampling" begin
-            sample = PEtabBayes.sample_new_multipathfinder_draws(
+            sample = PEtabBayes.sample_pathfinder_result(
                 result,
                 ndraws_new;
                 rng = Random.default_rng(),
@@ -169,12 +169,12 @@ include(joinpath(@__DIR__, "common.jl"))
         end
 
         @testset "rejects invalid draw counts" begin
-            @test_throws ArgumentError PEtabBayes.sample_new_multipathfinder_draws(
+            @test_throws ArgumentError PEtabBayes.sample_pathfinder_result(
                 result,
                 0,
             )
 
-            @test_throws ArgumentError PEtabBayes.sample_new_multipathfinder_draws(
+            @test_throws ArgumentError PEtabBayes.sample_pathfinder_result(
                 result,
                 10;
                 ndraws_per_run = 0,
@@ -182,7 +182,7 @@ include(joinpath(@__DIR__, "common.jl"))
         end
 
         @testset "new proposal draws are reproducible with fixed RNG" begin
-            sample1 = PEtabBayes.sample_new_multipathfinder_draws(
+            sample1 = PEtabBayes.sample_pathfinder_result(
                 result,
                 ndraws_new;
                 rng = Random.MersenneTwister(1),
@@ -190,7 +190,7 @@ include(joinpath(@__DIR__, "common.jl"))
                 importance = false,
             )
 
-            sample2 = PEtabBayes.sample_new_multipathfinder_draws(
+            sample2 = PEtabBayes.sample_pathfinder_result(
                 result,
                 ndraws_new;
                 rng = Random.MersenneTwister(1),
