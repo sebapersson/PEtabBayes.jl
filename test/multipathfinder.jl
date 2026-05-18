@@ -187,7 +187,7 @@ include(joinpath(@__DIR__, "common.jl"))
 
         user_optimizer = Optim.LBFGS(
             m = Pathfinder.DEFAULT_HISTORY_LENGTH,
-            linesearch = LineSearches.HagerZhang(),
+            linesearch = LineSearches.BackTracking(),
             alphaguess = LineSearches.InitialHagerZhang(),
         )
 
