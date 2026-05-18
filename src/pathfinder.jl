@@ -20,6 +20,71 @@ function _petab_prior_sampler(
     return x
 end
 
+function _to_petab_scale(
+        draws::AbstractMatrix, inference_info::PEtabBayes.InferenceInfo
+    )::AbstractMatrix
+    draws_petab_scale = similar(draws)
+
+    for j in axes(draws, 2)
+        draws_petab_scale[:, j] .= PEtabBayes._to_petab_scale(
+            @view(draws[:, j]), inference_info
+        )
+    end
+
+    return draws_petab_scale
+end
+
+function _to_petab_scale(
+        result::Pathfinder.PathfinderResult,
+        inference_info::PEtabBayes.InferenceInfo,
+    )::Pathfinder.PathfinderResult
+    draws = PEtabBayes._to_petab_scale(result.draws, inference_info)
+
+    return Pathfinder.PathfinderResult(
+        result.input,
+        result.optimizer,
+        result.rng,
+        result.optim_prob,
+        result.logp,
+        result.fit_distribution,
+        draws,
+        result.fit_distribution_transformed,
+        draws,
+        result.fit_iteration,
+        result.num_tries,
+        result.optim_solution,
+        result.optim_trace,
+        result.fit_distributions,
+        result.elbo_estimates,
+        result.num_bfgs_updates_rejected,
+    )
+end
+
+function _to_petab_scale(
+        result::Pathfinder.MultiPathfinderResult,
+        inference_info::PEtabBayes.InferenceInfo,
+    )::Pathfinder.MultiPathfinderResult
+    draws = PEtabBayes._to_petab_scale(result.draws, inference_info)
+    pathfinder_results = map(result.pathfinder_results) do pathfinder_result
+        PEtabBayes._to_petab_scale(pathfinder_result, inference_info)
+    end
+
+    return Pathfinder.MultiPathfinderResult(
+        result.input,
+        result.optimizer,
+        result.rng,
+        result.optim_fun,
+        result.logp,
+        result.fit_distribution,
+        draws,
+        result.draw_component_ids,
+        result.fit_distribution_transformed,
+        draws,
+        pathfinder_results,
+        result.psis_result,
+    )
+end
+
 """
     multipathfinder(
         log_target::PEtabBayesLogDensity, ndraws::Integer; kwargs...
@@ -84,7 +149,9 @@ function multipathfinder(
         kwargs...
     )
 
-    return multi_pathfinder_result
+    return PEtabBayes._to_petab_scale(
+        multi_pathfinder_result, log_target.inference_info
+    )
 end
 
 function _logpdf_eachcol(dist, draws::AbstractMatrix)
@@ -150,6 +217,9 @@ A named tuple with the fields:
 
 This function does not rerun the Pathfinder optimization. It only samples from
 the already fitted approximations stored in `result.pathfinder_results`.
+
+When `result` was produced for a `PEtabBayesLogDensity`, returned `draws` and
+`proposal_draws` are transformed back to the PEtab parameter scale.
 """
 function sample_pathfinder_result(
         result::Pathfinder.MultiPathfinderResult,
@@ -202,6 +272,12 @@ function sample_pathfinder_result(
 
     draws = proposal_draws[:, sample_inds]
     draw_component_ids = proposal_component_ids[sample_inds]
+
+    if result.input isa PEtabBayes.PEtabBayesLogDensity
+        inference_info = result.input.inference_info
+        draws = PEtabBayes._to_petab_scale(draws, inference_info)
+        proposal_draws = PEtabBayes._to_petab_scale(proposal_draws, inference_info)
+    end
 
     return (
         draws = draws,
