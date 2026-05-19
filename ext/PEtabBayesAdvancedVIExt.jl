@@ -34,9 +34,12 @@ function PEtabBayes._optimize(algorithm, max_iter::Integer,
     q_init_inference_scale = PEtabBayes._vi_initialization_to_inference_scale(
         q_init, prob
     )
-    return AdvancedVI.optimize(
+    q_out, info, state = AdvancedVI.optimize(
         algorithm, Int(max_iter), prob, q_init_inference_scale, args...; kwargs...
     )
+    return PEtabBayes.ParameterScaleVariationalDistribution(
+        q_out, prob.inference_info
+    ), info, state
 end
 
 function PEtabBayes._optimize(rng::Random.AbstractRNG, algorithm, max_iter::Integer,
@@ -45,9 +48,12 @@ function PEtabBayes._optimize(rng::Random.AbstractRNG, algorithm, max_iter::Inte
     q_init_inference_scale = PEtabBayes._vi_initialization_to_inference_scale(
         q_init, prob
     )
-    return AdvancedVI.optimize(
+    q_out, info, state = AdvancedVI.optimize(
         rng, algorithm, Int(max_iter), prob, q_init_inference_scale, args...; kwargs...
     )
+    return PEtabBayes.ParameterScaleVariationalDistribution(
+        q_out, prob.inference_info
+    ), info, state
 end
 
 end

@@ -11,7 +11,9 @@ target is defined on the unconstrained inference scale, but the location of
 location-scale initial variational approximations such as
 `AdvancedVI.FullRankGaussian` and `AdvancedVI.MeanFieldGaussian` should be
 provided on the PEtab parameter scale. The wrapper converts the initial location
-to the inference scale before calling `AdvancedVI.optimize`.
+to the inference scale before calling `AdvancedVI.optimize`. The optimized
+variational distribution is returned in a `ParameterScaleVariationalDistribution`
+wrapper, so samples drawn from the output are on the PEtab parameter scale.
 
 # Arguments
 - `rng`: Optional random number generator.
@@ -22,11 +24,53 @@ to the inference scale before calling `AdvancedVI.optimize`.
   families, the location is expected on the PEtab parameter scale.
 - `args...`: Additional positional arguments passed to `AdvancedVI.optimize`.
 
+# Returns
+Returns `(q, info, state)`, where `q` samples on the PEtab parameter scale. The
+fitted AdvancedVI distribution on the inference scale is available as
+`q.inference_scale_distribution`.
+
 # Keyword arguments
 Keyword arguments are passed to `AdvancedVI.optimize`; see
 [the AdvancedVI optimize documentation]
 (https://turinglang.org/AdvancedVI.jl/stable/general/#Running-Variational-Inference).
 """
+
+struct ParameterScaleVariationalDistribution{Q, I <: InferenceInfo}
+    inference_scale_distribution::Q
+    inference_info::I
+end
+
+function Random.rand(
+        rng::Random.AbstractRNG,
+        q::ParameterScaleVariationalDistribution,
+    )
+    draw = rand(rng, q.inference_scale_distribution)
+    return _to_petab_scale(draw, q.inference_info)
+end
+
+function Random.rand(q::ParameterScaleVariationalDistribution)
+    return rand(Random.default_rng(), q)
+end
+
+function Random.rand(
+        rng::Random.AbstractRNG,
+        q::ParameterScaleVariationalDistribution,
+        n_samples::Integer,
+    )
+    draws = rand(rng, q.inference_scale_distribution, n_samples)
+    draws_petab_scale = similar(draws)
+
+    for j in axes(draws, 2)
+        draws_petab_scale[:, j] .= _to_petab_scale(@view(draws[:, j]), q.inference_info)
+    end
+
+    return draws_petab_scale
+end
+
+function Random.rand(q::ParameterScaleVariationalDistribution, n_samples::Integer)
+    return rand(Random.default_rng(), q, n_samples)
+end
+
 function optimize(
         algorithm, max_iter::Integer, prob::PEtabBayesLogDensity, q_init, args...;
         kwargs...
