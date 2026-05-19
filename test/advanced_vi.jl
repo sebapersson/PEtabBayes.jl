@@ -16,10 +16,18 @@ include(joinpath(@__DIR__, "common.jl"))
     )
 
     d = PEtabBayes.LogDensityProblems.dimension(log_target)
+    x0_parameter_scale = collect(get_x(prob))
     x0_inference_scale = log_target.inference_info.bijectors(
-        PEtabBayes.to_prior_scale(get_x(prob), log_target)
+        PEtabBayes.to_prior_scale(x0_parameter_scale, log_target)
     )
-    q_init = AdvancedVI.MeanFieldGaussian(x0_inference_scale, Diagonal(fill(0.1, d)))
+    q_init = AdvancedVI.MeanFieldGaussian(x0_parameter_scale, Diagonal(fill(0.1, d)))
+    q_init_inference_scale = PEtabBayes._vi_initialization_to_inference_scale(
+        q_init, log_target
+    )
+    @test q_init.location == x0_parameter_scale
+    @test q_init_inference_scale.location ≈ x0_inference_scale
+    @test q_init_inference_scale.scale == q_init.scale
+
     alg = AdvancedVI.KLMinRepGradDescent(
         ADTypes.AutoReverseDiff();
         optimizer = Optimisers.Adam(2.0e-2),
