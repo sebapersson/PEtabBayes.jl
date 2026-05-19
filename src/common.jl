@@ -7,7 +7,7 @@ function _to_petab_scale(
     x_petab_scale = inference_info.inv_bijectors(x_inference)
 
     for i in eachindex(x_petab_scale)
-        priors_scale[i] === :parameters_scale && continue
+        priors_scale[i] === :parameter_scale && continue
         x_petab_scale[i] = _transform_x(x_petab_scale[i], parameters_scale[i])
     end
     return x_petab_scale
