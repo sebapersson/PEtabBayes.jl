@@ -4,7 +4,8 @@ import AdvancedVI
 import PEtabBayes
 import Random
 
-function PEtabBayes._vi_initialization_to_inference_scale(q_init,
+function PEtabBayes._vi_initialization_to_inference_scale(
+        q_init,
         prob::PEtabBayes.PEtabBayesLogDensity,
     )
     return q_init
@@ -28,7 +29,8 @@ function PEtabBayes._vi_initialization_to_inference_scale(
     )
 end
 
-function PEtabBayes._optimize(algorithm, max_iter::Integer,
+function PEtabBayes._optimize(
+        algorithm, max_iter::Integer,
         prob::PEtabBayes.PEtabBayesLogDensity, q_init, args...; kwargs...
     )
     q_init_inference_scale = PEtabBayes._vi_initialization_to_inference_scale(
@@ -38,11 +40,12 @@ function PEtabBayes._optimize(algorithm, max_iter::Integer,
         algorithm, Int(max_iter), prob, q_init_inference_scale, args...; kwargs...
     )
     return PEtabBayes.ParameterScaleVariationalDistribution(
-        q_out, prob.inference_info
-    ), info, state
+            q_out, prob.inference_info
+        ), info, state
 end
 
-function PEtabBayes._optimize(rng::Random.AbstractRNG, algorithm, max_iter::Integer,
+function PEtabBayes._optimize(
+        rng::Random.AbstractRNG, algorithm, max_iter::Integer,
         prob::PEtabBayes.PEtabBayesLogDensity, q_init, args...; kwargs...
     )
     q_init_inference_scale = PEtabBayes._vi_initialization_to_inference_scale(
@@ -52,8 +55,8 @@ function PEtabBayes._optimize(rng::Random.AbstractRNG, algorithm, max_iter::Inte
         rng, algorithm, Int(max_iter), prob, q_init_inference_scale, args...; kwargs...
     )
     return PEtabBayes.ParameterScaleVariationalDistribution(
-        q_out, prob.inference_info
-    ), info, state
+            q_out, prob.inference_info
+        ), info, state
 end
 
 end
