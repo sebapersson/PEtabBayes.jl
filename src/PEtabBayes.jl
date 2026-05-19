@@ -24,7 +24,8 @@ include("mcmc_chains.jl")
 include("prior.jl")
 include("sample.jl")
 include("show.jl")
+include("pathfinder.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, sample, describe, parameters
+export PEtabBayesLogDensity, to_prior_scale, sample, describe, parameters, multipathfinder
 
 end

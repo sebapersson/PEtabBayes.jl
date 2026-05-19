@@ -1,0 +1,346 @@
+using Test
+using Random
+using Optim
+using LineSearches
+using Pathfinder
+using PEtabBayes
+using LogDensityProblems
+
+include(joinpath(@__DIR__, "common.jl"))
+
+@testset "PEtabBayes multipathfinder wrapper" begin
+    rng = Random.default_rng()
+
+    _b1 = PEtabParameter(:b1, value = 1.0, lb = 0.0, ub = 5.0, scale = :lin)
+    _b2 = PEtabParameter(:b2, value = 0.2, lb = 0.0, ub = 5.0, scale = :lin)
+    _sigma = PEtabParameter(:sigma, value = 0.03, lb = 1.0e-3, ub = 1.0e2, scale = :lin)
+
+    pest = [_b1, _b2, _sigma]
+    petab_prob = get_prob_saturated(pest)
+    log_target = PEtabBayesLogDensity(petab_prob)
+
+    ndraws = 10
+    dim = LogDensityProblems.dimension(log_target)
+
+    function test_multipathfinder_result(result, ndraws, dim)
+        @test result isa Pathfinder.MultiPathfinderResult
+
+        @test size(result.draws, 1) == dim
+        @test size(result.draws, 2) == ndraws
+        @test all(isfinite, result.draws)
+
+        return nothing
+    end
+
+    @testset "Explicit init and default optimizer" begin
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+
+        result = PEtabBayes.multipathfinder(
+            log_target,
+            ndraws,
+            init,
+        )
+
+        test_multipathfinder_result(result, ndraws, dim)
+    end
+
+    @testset "wrapper matches Pathfinder.multipathfinder" begin
+        function default_optimizer()
+            return Optim.LBFGS(
+                m = Pathfinder.DEFAULT_HISTORY_LENGTH,
+                linesearch = LineSearches.BackTracking(),
+                alphaguess = LineSearches.InitialHagerZhang(),
+            )
+        end
+
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+        wrapper_init = deepcopy(init)
+        direct_init = deepcopy(init)
+
+        inference_info = log_target.inference_info
+        for i in eachindex(direct_init)
+            _x = PEtabBayes.to_prior_scale(direct_init[i], log_target)
+            direct_init[i] .= inference_info.bijectors(_x)
+        end
+
+        wrapper_result = PEtabBayes.multipathfinder(
+            log_target,
+            ndraws,
+            wrapper_init,
+            default_optimizer();
+            rng = Random.MersenneTwister(1),
+        )
+
+        direct_result = Pathfinder.multipathfinder(
+            log_target,
+            ndraws;
+            init = direct_init,
+            init_sampler = (rng, x) -> PEtabBayes._petab_prior_sampler(
+                rng,
+                x,
+                log_target,
+            ),
+            optimizer = default_optimizer(),
+            rng = Random.MersenneTwister(1),
+        )
+
+        direct_draws_petab_scale = PEtabBayes._to_petab_scale(
+            direct_result.draws, log_target.inference_info
+        )
+
+        @test wrapper_result.draws ≈ direct_draws_petab_scale
+        @test wrapper_result.draws_transformed ≈ direct_draws_petab_scale
+        @test length(wrapper_result.pathfinder_results) ==
+            length(direct_result.pathfinder_results)
+        for i in eachindex(wrapper_result.pathfinder_results)
+            direct_path_draws_petab_scale = PEtabBayes._to_petab_scale(
+                direct_result.pathfinder_results[i].draws,
+                log_target.inference_info,
+            )
+            @test wrapper_result.pathfinder_results[i].draws ≈
+                direct_path_draws_petab_scale
+        end
+    end
+
+    @testset "wrapper returns draws on parameter scale" begin
+        pest_log = [
+            PEtabParameter(
+                :b1, value = 1.0, scale = :log10, prior = LogNormal(0.0, 0.5)
+            ),
+            PEtabParameter(
+                :b2, value = 0.2, scale = :log, prior = LogNormal(-1.5, 0.5)
+            ),
+            PEtabParameter(
+                :sigma, value = 0.03, scale = :lin, prior = LogNormal(-3.5, 0.5)
+            ),
+        ]
+        petab_prob_log = get_prob_saturated(pest_log)
+        log_target_log = PEtabBayesLogDensity(petab_prob_log)
+        init = PEtab.get_startguesses(petab_prob_log, 4) .|> collect
+        optimizer = Optim.LBFGS(
+            m = Pathfinder.DEFAULT_HISTORY_LENGTH,
+            linesearch = LineSearches.BackTracking(),
+            alphaguess = LineSearches.InitialHagerZhang(),
+        )
+
+        wrapper_result = PEtabBayes.multipathfinder(
+            log_target_log,
+            ndraws,
+            deepcopy(init),
+            optimizer;
+            rng = Random.MersenneTwister(1),
+            nruns = 4,
+        )
+
+        direct_init = deepcopy(init)
+        inference_info = log_target_log.inference_info
+        for i in eachindex(direct_init)
+            _x = PEtabBayes.to_prior_scale(direct_init[i], log_target_log)
+            direct_init[i] .= inference_info.bijectors(_x)
+        end
+
+        direct_result = Pathfinder.multipathfinder(
+            log_target_log,
+            ndraws;
+            init = direct_init,
+            init_sampler = (rng, x) -> PEtabBayes._petab_prior_sampler(
+                rng,
+                x,
+                log_target_log,
+            ),
+            optimizer = optimizer,
+            rng = Random.MersenneTwister(1),
+        )
+
+        direct_draws_petab_scale = PEtabBayes._to_petab_scale(
+            direct_result.draws, inference_info
+        )
+
+        @test wrapper_result.draws ≈ direct_draws_petab_scale
+        @test wrapper_result.draws_transformed ≈ direct_draws_petab_scale
+        @test !isapprox(wrapper_result.draws, direct_result.draws)
+
+        sample = PEtabBayes.sample_pathfinder_result(
+            wrapper_result,
+            ndraws;
+            rng = Random.MersenneTwister(2),
+            ndraws_per_run = 4,
+            importance = false,
+        )
+
+        @test all(isfinite, sample.draws)
+        @test all(isfinite, sample.proposal_draws)
+
+        sample_draws_roundtrip = reduce(
+            hcat,
+            map(eachcol(sample.draws)) do draw
+                draw_prior_scale = PEtabBayes.to_prior_scale(collect(draw), log_target_log)
+                draw_inference_scale = inference_info.bijectors(draw_prior_scale)
+                PEtabBayes._to_petab_scale(draw_inference_scale, inference_info)
+            end,
+        )
+        @test sample.draws ≈ sample_draws_roundtrip
+    end
+
+    @testset "Explicit init and user provided optimizer" begin
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+
+        user_optimizer = Optim.LBFGS(
+            m = Pathfinder.DEFAULT_HISTORY_LENGTH,
+            linesearch = LineSearches.BackTracking(),
+            alphaguess = LineSearches.InitialHagerZhang(),
+        )
+
+        result = PEtabBayes.multipathfinder(
+            log_target,
+            ndraws,
+            init,
+            user_optimizer,
+        )
+
+        test_multipathfinder_result(result, ndraws, dim)
+    end
+
+    @testset "init_sampler works when explicit init is not provided" begin
+        result = PEtabBayes.multipathfinder(
+            log_target,
+            ndraws;
+            nruns = 10,
+        )
+
+        test_multipathfinder_result(result, ndraws, dim)
+    end
+
+    @testset "petab_prior_sampler mutates and returns valid x" begin
+        x = zeros(dim)
+
+        returned_x = PEtabBayes._petab_prior_sampler(rng, x, log_target)
+
+        @test returned_x === x
+        @test length(x) == dim
+        @test all(isfinite, x)
+
+        @test isfinite(LogDensityProblems.logdensity(log_target, x))
+    end
+
+    @testset "invalid optimizer is rejected" begin
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+
+        @test_throws Exception PEtabBayes.multipathfinder(
+            log_target,
+            ndraws,
+            init,
+            "not an optimizer",
+        )
+    end
+    @testset "multipathfinder sampling" begin
+        ndraws_new = 20
+        ndraws_per_run = 15
+        rng = Random.default_rng()
+
+        # First create an existing MultiPathfinderResult
+        init = PEtab.get_startguesses(petab_prob, 10) .|> collect
+
+        result = PEtabBayes.multipathfinder(
+            log_target,
+            10,
+            init;
+            nruns = 10,
+        )
+
+        @test result isa Pathfinder.MultiPathfinderResult
+
+        @testset "samples new draws with importance resampling" begin
+            sample = PEtabBayes.sample_pathfinder_result(
+                result,
+                ndraws_new;
+                rng = rng,
+                ndraws_per_run = ndraws_per_run,
+                importance = true,
+            )
+
+            @test sample isa NamedTuple
+            @test hasproperty(sample, :draws)
+            @test hasproperty(sample, :draw_component_ids)
+            @test hasproperty(sample, :psis_result)
+            @test hasproperty(sample, :proposal_draws)
+            @test hasproperty(sample, :proposal_component_ids)
+
+            dim = LogDensityProblems.dimension(log_target)
+            nruns = length(result.pathfinder_results)
+
+            @test size(sample.draws) == (dim, ndraws_new)
+            @test length(sample.draw_component_ids) == ndraws_new
+            @test all(1 .<= sample.draw_component_ids .<= nruns)
+            @test all(isfinite, sample.draws)
+
+            @test size(sample.proposal_draws) == (dim, ndraws_per_run * nruns)
+            @test length(sample.proposal_component_ids) == ndraws_per_run * nruns
+            @test all(1 .<= sample.proposal_component_ids .<= nruns)
+            @test all(isfinite, sample.proposal_draws)
+
+            @test sample.psis_result !== nothing
+        end
+
+        @testset "samples new draws without importance resampling" begin
+            sample = PEtabBayes.sample_pathfinder_result(
+                result,
+                ndraws_new;
+                rng = Random.default_rng(),
+                ndraws_per_run = ndraws_per_run,
+                importance = false,
+            )
+
+            dim = LogDensityProblems.dimension(log_target)
+            nruns = length(result.pathfinder_results)
+
+            @test size(sample.draws) == (dim, ndraws_new)
+            @test length(sample.draw_component_ids) == ndraws_new
+            @test all(1 .<= sample.draw_component_ids .<= nruns)
+            @test all(isfinite, sample.draws)
+
+            @test size(sample.proposal_draws) == (dim, ndraws_per_run * nruns)
+            @test length(sample.proposal_component_ids) == ndraws_per_run * nruns
+            @test all(isfinite, sample.proposal_draws)
+
+            @test sample.psis_result === nothing
+        end
+
+        @testset "rejects invalid draw counts" begin
+            @test_throws ArgumentError PEtabBayes.sample_pathfinder_result(
+                result,
+                0,
+            )
+
+            @test_throws ArgumentError PEtabBayes.sample_pathfinder_result(
+                result,
+                10;
+                ndraws_per_run = 0,
+            )
+        end
+
+        @testset "new proposal draws are reproducible with fixed RNG" begin
+            sample1 = PEtabBayes.sample_pathfinder_result(
+                result,
+                ndraws_new;
+                rng = Random.MersenneTwister(1),
+                ndraws_per_run = ndraws_per_run,
+                importance = false,
+            )
+
+            sample2 = PEtabBayes.sample_pathfinder_result(
+                result,
+                ndraws_new;
+                rng = Random.MersenneTwister(1),
+                ndraws_per_run = ndraws_per_run,
+                importance = false,
+            )
+
+            @test sample1.draws == sample2.draws
+            @test sample1.draw_component_ids == sample2.draw_component_ids
+            @test sample1.proposal_draws == sample2.proposal_draws
+            @test sample1.proposal_component_ids == sample2.proposal_component_ids
+        end
+    end
+
+end
