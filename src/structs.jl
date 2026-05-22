@@ -50,9 +50,9 @@ function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
         # on parameter scale with lb and ub as bounds
         if !in(ix, priors.ix_prior)
             if isinf(lower_bounds[ix]) || isinf(upper_bounds[ix])
-                @warn "Lower or upper bounds for parameter $(parameter_names[ix]) is \
-                    -inf and/or inf. Assigning default Uniform prior with linear-scale \
-                    fallback bounds 1e-3 and 1e3"
+                @warn "Lower or upper bound for parameter $(parameter_names[ix]) is \
+                    -inf and/or inf on the parameter scale. Assigning default Uniform \
+                    prior with linear-scale fallback bounds 1e-3 and 1e3"
                 priors_dist[ix] = Uniform(_default_uniform_prior_bounds(parameters_scale[ix])...)
             else
                 priors_dist[ix] = Uniform(lower_bounds[ix], upper_bounds[ix])
