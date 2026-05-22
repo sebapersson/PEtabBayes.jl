@@ -43,7 +43,7 @@ function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
             else
                 priors_dist[ix] = Uniform(lower_bounds[ix], upper_bounds[ix])
             end
-            priors_scale[ix] = :lin
+            priors_scale[ix] = parameters_scale[ix] === :lin ? :lin : :parameter_scale
         else
             jx = findfirst(x -> x == ix, priors.ix_prior)
             priors_dist[ix] = priors.distributions[jx]

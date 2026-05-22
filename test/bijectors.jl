@@ -114,3 +114,16 @@ p_est = [
     PEtabParameter(:k2; scale = :log10, prior = LogNormal(0.0, 1.0), value = 0.9),
 ]
 test_bijectors(p_est)
+
+# Default priors on nonlinear parameter scale
+p_est = [
+    PEtabParameter(:k1; scale = :lin, prior = Uniform(0.0, 2.0), value = 1.1),
+    PEtabParameter(:k2; scale = :log10, lb = 0.01, ub = 10.0, value = 0.9),
+]
+prob_test = _get_petab_problem(p_est)
+log_density = PEtabBayesLogDensity(prob_test)
+@test log_density.inference_info.priors_scale == [:lin, :parameter_scale]
+@test params(log_density.inference_info.priors[2]) == (
+    prob_test.lower_bounds[2], prob_test.upper_bounds[2],
+)
+@test PEtabBayes.to_prior_scale(get_x(prob_test), log_density)[2] == get_x(prob_test)[2]
