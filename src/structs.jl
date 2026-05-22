@@ -12,6 +12,19 @@ struct InferenceInfo{
     parameters_scale::Vector{Symbol}
     parameters_id::Vector{Symbol}
 end
+function _default_uniform_prior_bounds(scale::Symbol)::Tuple{Float64, Float64}
+    lower_bound = 1.0e-3
+    upper_bound = 1.0e3
+    if scale === :log10
+        return log10(lower_bound), log10(upper_bound)
+    elseif scale === :log
+        return log(lower_bound), log(upper_bound)
+    elseif scale === :log2
+        return log2(lower_bound), log2(upper_bound)
+    end
+    return lower_bound, upper_bound
+end
+
 function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
     @unpack model_info, lower_bounds, upper_bounds, xnominal = petab_problem
     @unpack priors, petab_parameters = model_info
@@ -36,10 +49,11 @@ function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
         # In case the parameter lacks a defined prior we default to a Uniform
         # on parameter scale with lb and ub as bounds
         if !in(ix, priors.ix_prior)
-            if abs(isinf(lower_bounds[ix])) || isinf(upper_bounds[ix])
+            if isinf(lower_bounds[ix]) || isinf(upper_bounds[ix])
                 @warn "Lower or upper bounds for parameter $(parameter_names[ix]) is \
-                    -inf and/or inf. Assigning Uniform(1e-3, 1e3) prior"
-                priors_dist[ix] = Uniform(1.0e-3, 1.0e3)
+                    -inf and/or inf. Assigning default Uniform prior with linear-scale \
+                    fallback bounds 1e-3 and 1e3"
+                priors_dist[ix] = Uniform(_default_uniform_prior_bounds(parameters_scale[ix])...)
             else
                 priors_dist[ix] = Uniform(lower_bounds[ix], upper_bounds[ix])
             end
