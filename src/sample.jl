@@ -34,7 +34,7 @@ Keyword arguments are passed to `adaptive_rwm`; see
 """
 function sample(
         log_target::PEtabBayesLogDensity, alg, n_samples::Integer,
-        x0::PEtabBayes.InputVector; kwargs...
+        x0::InputVector; kwargs...
     )
     @argcheck n_samples > 0
     return _sample(log_target, alg, n_samples, x0; kwargs...)

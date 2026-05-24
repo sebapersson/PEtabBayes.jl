@@ -72,13 +72,9 @@ include(joinpath(@__DIR__, "common.jl"))
         )
 
         direct_result = Pathfinder.multipathfinder(
-            log_target,
-            ndraws;
-            init = direct_init,
-            init_sampler = (rng, x) -> PEtabBayes._petab_prior_sampler(
-                rng,
-                x,
-                log_target,
+            log_target, ndraws; init = direct_init,
+            init_sampler = (rng, x) -> PEtabBayes._sample_prior(
+                rng, x, log_target,
             ),
             optimizer = default_optimizer(),
             rng = Random.MersenneTwister(1),
@@ -140,16 +136,11 @@ include(joinpath(@__DIR__, "common.jl"))
         end
 
         direct_result = Pathfinder.multipathfinder(
-            log_target_log,
-            ndraws;
-            init = direct_init,
-            init_sampler = (rng, x) -> PEtabBayes._petab_prior_sampler(
-                rng,
-                x,
-                log_target_log,
+            log_target_log, ndraws; init = direct_init,
+            init_sampler = (rng, x) -> PEtabBayes._sample_prior(
+                rng, x, log_target_log,
             ),
-            optimizer = optimizer,
-            rng = Random.MersenneTwister(1),
+            optimizer = optimizer, rng = Random.MersenneTwister(1),
         )
 
         direct_draws_petab_scale = PEtabBayes._to_petab_scale(
@@ -161,10 +152,7 @@ include(joinpath(@__DIR__, "common.jl"))
         @test !isapprox(wrapper_result.draws, direct_result.draws)
 
         sample = PEtabBayes.sample_pathfinder_result(
-            wrapper_result,
-            ndraws;
-            rng = Random.MersenneTwister(2),
-            ndraws_per_run = 4,
+            wrapper_result, ndraws; rng = Random.MersenneTwister(2), ndraws_per_run = 4,
             importance = false,
         )
 
@@ -192,10 +180,7 @@ include(joinpath(@__DIR__, "common.jl"))
         )
 
         result = PEtabBayes.multipathfinder(
-            log_target,
-            ndraws,
-            init,
-            user_optimizer,
+            log_target, ndraws, init, user_optimizer,
         )
 
         test_multipathfinder_result(result, ndraws, dim)
@@ -214,7 +199,7 @@ include(joinpath(@__DIR__, "common.jl"))
     @testset "petab_prior_sampler mutates and returns valid x" begin
         x = zeros(dim)
 
-        returned_x = PEtabBayes._petab_prior_sampler(rng, x, log_target)
+        returned_x = PEtabBayes._sample_prior(rng, x, log_target)
 
         @test returned_x === x
         @test length(x) == dim
@@ -227,10 +212,7 @@ include(joinpath(@__DIR__, "common.jl"))
         init = PEtab.get_startguesses(petab_prob, 10) .|> collect
 
         @test_throws Exception PEtabBayes.multipathfinder(
-            log_target,
-            ndraws,
-            init,
-            "not an optimizer",
+            log_target, ndraws, init, "not an optimizer",
         )
     end
     @testset "multipathfinder sampling" begin
@@ -242,10 +224,7 @@ include(joinpath(@__DIR__, "common.jl"))
         init = PEtab.get_startguesses(petab_prob, 10) .|> collect
 
         result = PEtabBayes.multipathfinder(
-            log_target,
-            10,
-            init;
-            nruns = 10,
+            log_target, 10, init; nruns = 10,
         )
 
         @test result isa Pathfinder.MultiPathfinderResult
@@ -284,11 +263,8 @@ include(joinpath(@__DIR__, "common.jl"))
 
         @testset "samples new draws without importance resampling" begin
             sample = PEtabBayes.sample_pathfinder_result(
-                result,
-                ndraws_new;
-                rng = Random.default_rng(),
-                ndraws_per_run = ndraws_per_run,
-                importance = false,
+                result, ndraws_new; rng = Random.default_rng(),
+                ndraws_per_run = ndraws_per_run, importance = false,
             )
 
             dim = LogDensityProblems.dimension(log_target)
@@ -308,32 +284,23 @@ include(joinpath(@__DIR__, "common.jl"))
 
         @testset "rejects invalid draw counts" begin
             @test_throws ArgumentError PEtabBayes.sample_pathfinder_result(
-                result,
-                0,
+                result, 0,
             )
 
             @test_throws ArgumentError PEtabBayes.sample_pathfinder_result(
-                result,
-                10;
-                ndraws_per_run = 0,
+                result, 10; ndraws_per_run = 0,
             )
         end
 
         @testset "new proposal draws are reproducible with fixed RNG" begin
             sample1 = PEtabBayes.sample_pathfinder_result(
-                result,
-                ndraws_new;
-                rng = Random.MersenneTwister(1),
-                ndraws_per_run = ndraws_per_run,
-                importance = false,
+                result, ndraws_new; rng = Random.MersenneTwister(1),
+                ndraws_per_run = ndraws_per_run, importance = false,
             )
 
             sample2 = PEtabBayes.sample_pathfinder_result(
-                result,
-                ndraws_new;
-                rng = Random.MersenneTwister(1),
-                ndraws_per_run = ndraws_per_run,
-                importance = false,
+                result, ndraws_new; rng = Random.MersenneTwister(1),
+                ndraws_per_run = ndraws_per_run, importance = false,
             )
 
             @test sample1.draws == sample2.draws

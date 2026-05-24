@@ -1,6 +1,6 @@
 function _to_petab_scale(
-        x_inference::AbstractVector, inference_info::InferenceInfo
-    )::AbstractVector
+        x_inference::AbstractVector{<:T}, inference_info::InferenceInfo
+    )::AbstractVector{<:T} where {T <: Real}
 
     # Transform x into θ - the scale for the priors
     @unpack inv_bijectors, priors_scale, parameters_scale = inference_info
@@ -16,7 +16,7 @@ function _to_petab_scale(
 end
 function _to_petab_scale(
         draws::T, inference_info::PEtabBayes.InferenceInfo
-    )::T where T <: AbstractMatrix{<:Real}
+    )::T where {T <: AbstractMatrix{<:Real}}
     draws_petab_scale = similar(draws)
 
     for j in axes(draws, 2)
@@ -36,7 +36,7 @@ performed on the prior scale.
 """
 function to_prior_scale(
         x_petab_scale::T, target::PEtabBayesLogDensity
-    )::T where {T <: AbstractVector}
+    )::T where {T <: AbstractVector{<:Real}}
     @unpack parameters_scale, priors_scale = target.inference_info
 
     x_prior_scale = similar(x_petab_scale)
@@ -53,7 +53,7 @@ end
 
 function _gradient_to_inference_scale!(
         grad::T, x_inference::T, x_petab_scale::T, inference_info::InferenceInfo
-    )::Nothing where {T <: AbstractVector}
+    )::Nothing where {T <: AbstractVector{<:Real}}
     # Two-step procedure
     # 1 : From parameter to prior-scale
     # 2 : From prior to inference scale
@@ -78,7 +78,7 @@ end
 
 function _sample_prior(
         rng::Random.AbstractRNG, x::T, log_target::PEtabBayes.PEtabBayesLogDensity,
-    )::T where T <: AbstractVector{<:Real}
+    )::T where {T <: AbstractVector{<:Real}}
     petab_prob = log_target.prob
     inference_info = log_target.inference_info
 
