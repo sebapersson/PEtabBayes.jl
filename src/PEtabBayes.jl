@@ -8,6 +8,7 @@ using LogDensityProblems: LogDensityProblems, LogDensityOrder
 import ForwardDiff
 using MCMCChains: Chains, setinfo
 using PEtab: PEtab, PEtabODEProblem
+import Random
 using SimpleUnPack: @unpack
 import StyledStrings
 using Printf: @sprintf
