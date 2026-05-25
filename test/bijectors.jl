@@ -138,3 +138,21 @@ log_density = PEtabBayesLogDensity(prob_test)
 @test log_density.inference_info.priors_scale == [:lin, :parameter_scale]
 @test params(log_density.inference_info.priors[2]) == (-3.0, 3.0)
 @test PEtabBayes.to_prior_scale(get_x(prob_test), log_density)[2] == get_x(prob_test)[2]
+
+prior, prior_scale = PEtabBayes._default_uniform_prior(
+    :k1, :log10, -2.0, 1.0, 0.01, 10.0, "1.0.0"
+)
+@test prior_scale == :parameter_scale
+@test params(prior) == (-2.0, 1.0)
+
+prior, prior_scale = PEtabBayes._default_uniform_prior(
+    :k1, :log10, -Inf, 1.0, 0.0, 10.0, "1.0.0"
+)
+@test prior_scale == :parameter_scale
+@test params(prior) == (-3.0, 3.0)
+
+prior, prior_scale = PEtabBayes._default_uniform_prior(
+    :k1, :log10, -Inf, 1.0, 0.0, 10.0, "2.0.0"
+)
+@test prior_scale == :lin
+@test params(prior) == (0.0, 10.0)
