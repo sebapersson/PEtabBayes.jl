@@ -1,6 +1,6 @@
 function _to_petab_scale(
-        x_inference::AbstractVector{<:T}, inference_info::InferenceInfo
-    )::AbstractVector{<:T} where {T <: Real}
+        x_inference::AbstractVector{<:Real}, inference_info::InferenceInfo
+    )::AbstractVector{<:Real}
 
     # Transform x into θ - the scale for the priors
     @unpack inv_bijectors, priors_scale, parameters_scale = inference_info
