@@ -1,6 +1,6 @@
 function _to_petab_scale(
-        x_inference::AbstractVector, inference_info::InferenceInfo
-    )::AbstractVector
+        x_inference::AbstractVector{<:Real}, inference_info::InferenceInfo
+    )::AbstractVector{<:Real}
 
     # Transform x into θ - the scale for the priors
     @unpack inv_bijectors, priors_scale, parameters_scale = inference_info
@@ -8,9 +8,22 @@ function _to_petab_scale(
 
     for i in eachindex(x_petab_scale)
         priors_scale[i] === :parameter_scale && continue
-        x_petab_scale[i] = _transform_x(x_petab_scale[i], parameters_scale[i])
+        x_petab_scale[i] = PEtab.transform_x(
+            x_petab_scale[i], parameters_scale[i], to_xscale = true
+        )
     end
     return x_petab_scale
+end
+function _to_petab_scale(
+        draws::T, inference_info::PEtabBayes.InferenceInfo
+    )::T where {T <: AbstractMatrix{<:Real}}
+    draws_petab_scale = similar(draws)
+
+    for j in axes(draws, 2)
+        draws_petab_scale[:, j] .= _to_petab_scale(@view(draws[:, j]), inference_info)
+    end
+
+    return draws_petab_scale
 end
 
 """
@@ -23,7 +36,7 @@ performed on the prior scale.
 """
 function to_prior_scale(
         x_petab_scale::T, target::PEtabBayesLogDensity
-    )::T where {T <: AbstractVector}
+    )::T where {T <: AbstractVector{<:Real}}
     @unpack parameters_scale, priors_scale = target.inference_info
 
     x_prior_scale = similar(x_petab_scale)
@@ -33,7 +46,7 @@ function to_prior_scale(
             continue
         end
 
-        x_prior_scale[i] = _transform_x(x, parameters_scale[i]; reverse = true)
+        x_prior_scale[i] = PEtab.transform_x(x, parameters_scale[i]; to_xscale = false)
     end
     return x_prior_scale
 end
@@ -46,7 +59,7 @@ end
 
 function _gradient_to_inference_scale!(
         grad::T, x_inference::T, x_petab_scale::T, inference_info::InferenceInfo
-    )::Nothing where {T <: AbstractVector}
+    )::Nothing where {T <: AbstractVector{<:Real}}
     # Two-step procedure
     # 1 : From parameter to prior-scale
     # 2 : From prior to inference scale
@@ -69,14 +82,15 @@ function _gradient_to_inference_scale!(
     return nothing
 end
 
+function _sample_prior(
+        rng::Random.AbstractRNG, x::T, log_target::PEtabBayes.PEtabBayesLogDensity,
+    )::T where {T <: AbstractVector{<:Real}}
+    petab_prob = log_target.prob
+    inference_info = log_target.inference_info
 
-function _transform_x(x::T, transform::Symbol; reverse::Bool = false)::T where {T <: Real}
-    if transform == :log10
-        return reverse ? exp10(x) : log10(x)
-    elseif transform == :log
-        return reverse ? exp(x) : log(x)
-    elseif transform == :log2
-        return reverse ? exp2(x) : log2(x)
-    end
+    new_guess = PEtab.get_startguesses(rng, petab_prob, 1)
+    _x = to_prior_scale(new_guess, log_target)
+
+    copyto!(x, inference_info.bijectors(_x))
     return x
 end

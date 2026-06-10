@@ -1,81 +1,18 @@
-import Pathfinder
-import Optim
-import LineSearches
-import Random
-import Distributions
-
-function _petab_prior_sampler(
-        rng::Random.AbstractRNG, x,
-        log_target::PEtabBayes.PEtabBayesLogDensity,
-    )
-    petab_prob = log_target.prob
-    inference_info = log_target.inference_info
-
-    new_guess = PEtab.get_startguesses(petab_prob, 1)
-    _x = PEtabBayes.to_prior_scale(new_guess, log_target)
-
-    copyto!(x, inference_info.bijectors(_x))
-
-    return x
-end
-
-function _to_petab_scale(
-        draws::AbstractMatrix, inference_info::PEtabBayes.InferenceInfo
-    )::AbstractMatrix
-    draws_petab_scale = similar(draws)
-
-    for j in axes(draws, 2)
-        draws_petab_scale[:, j] .= PEtabBayes._to_petab_scale(
-            @view(draws[:, j]), inference_info
-        )
-    end
-
-    return draws_petab_scale
-end
-
-function _to_petab_scale(
-        result::Pathfinder.PathfinderResult, inference_info::PEtabBayes.InferenceInfo,
-    )::Pathfinder.PathfinderResult
-    draws = PEtabBayes._to_petab_scale(result.draws, inference_info)
-
-    return Pathfinder.PathfinderResult(
-        result.input, result.optimizer, result.rng, result.optim_prob, result.logp,
-        result.fit_distribution, draws, result.fit_distribution_transformed, draws,
-        result.fit_iteration, result.num_tries, result.optim_solution, result.optim_trace,
-        result.fit_distributions, result.elbo_estimates, result.num_bfgs_updates_rejected,
-    )
-end
-
-function _to_petab_scale(
-        result::Pathfinder.MultiPathfinderResult, inference_info::PEtabBayes.InferenceInfo,
-    )::Pathfinder.MultiPathfinderResult
-    draws = PEtabBayes._to_petab_scale(result.draws, inference_info)
-    pathfinder_results = map(result.pathfinder_results) do pathfinder_result
-        PEtabBayes._to_petab_scale(pathfinder_result, inference_info)
-    end
-
-    return Pathfinder.MultiPathfinderResult(
-        result.input, result.optimizer, result.rng, result.optim_fun, result.logp,
-        result.fit_distribution, draws, result.draw_component_ids,
-        result.fit_distribution_transformed, draws, pathfinder_results, result.psis_result,
-    )
-end
-
 """
     multipathfinder(
         log_target::PEtabBayesLogDensity, ndraws::Integer; kwargs...
     )
 
-Run Pathfinder.jl's multipathfinder [1] on `log_target` and draw `ndraws`
-approximate samples from the target distribution.
+Run Pathfinder.jl's multipathfinder on `log_target` and draw `ndraws` approximate samples
+from the target distribution.
 
-This is a wrapper around `multipathfinder` from
-[Pathfinder.jl](https://github.com/mlcolab/Pathfinder.jl) and supports the same
-keyword arguments.
+This is a wrapper around the variation inference algorithm Pathfinder [1], specifically the
+`multipathfinder` from [Pathfinder.jl](https://github.com/mlcolab/Pathfinder.jl) and
+supports the same keyword arguments.
 
 # Arguments
 - `log_target`: The log-density of the target distribution.
-- `ndraws`: Number of approximate draws to return.
+- `ndraws`: Number of approximate posterior draws to return.
 - `init`: Optional initial points for the optimization. If not provided, the
   initial points will be sampled from the prior distribution of the PEtab
   problem.
@@ -90,53 +27,7 @@ Keyword arguments are passed to `Pathfinder.multipathfinder`.
    Parallel quasi-Newton variational inference." *Journal of Machine Learning
    Research* 23.306 (2022): 1-49.
 """
-
-function multipathfinder(
-        log_target::PEtabBayes.PEtabBayesLogDensity, ndraws::Int, init = nothing,
-        optimizer = Optim.LBFGS(
-            m = Pathfinder.DEFAULT_HISTORY_LENGTH, linesearch = LineSearches.BackTracking(),
-            alphaguess = LineSearches.InitialHagerZhang(),
-        );
-        kwargs...
-    )::Pathfinder.MultiPathfinderResult
-
-    if (!isnothing(init))
-        # If init is provided, transform to prior/inference scale
-        inference_info = log_target.inference_info
-        for i in eachindex(init)
-            _x = PEtabBayes.to_prior_scale(init[i], log_target)
-            init[i] .= inference_info.bijectors(_x)
-        end
-    end
-
-    # Define the initial sampler for Pathfinder, which samples from the prior
-    # distribution of the PEtab problem.
-    init_sampler = (rng, x) -> _petab_prior_sampler(rng, x, log_target)
-
-    multi_pathfinder_result = Pathfinder.multipathfinder(
-        log_target, ndraws;
-        init = init, init_sampler = init_sampler, optimizer = optimizer,
-        kwargs...
-    )
-
-    return PEtabBayes._to_petab_scale(multi_pathfinder_result, log_target.inference_info)
-end
-
-function _logpdf_eachcol(dist, draws::AbstractMatrix)
-    return [Distributions.logpdf(dist, @view draws[:, j]) for j in axes(draws, 2)]
-end
-
-function _rand_matrix(rng::Random.AbstractRNG, dist, ndraws::Int)
-    draws = rand(rng, dist, ndraws)
-
-    # For a 1-dimensional target, rand may return a vector.
-    # Normalize to the Pathfinder convention: dim x ndraws.
-    if draws isa AbstractVector
-        return reshape(draws, 1, :)
-    else
-        return draws
-    end
-end
+function multipathfinder end
 
 """
     sample_pathfinder_result(result, ndraws; rng, ndraws_per_run, importance)
@@ -189,68 +80,4 @@ the already fitted approximations stored in `result.pathfinder_results`.
 When `result` was produced for a `PEtabBayesLogDensity`, returned `draws` and
 `proposal_draws` are transformed back to the PEtab parameter scale.
 """
-function sample_pathfinder_result(
-        result::Pathfinder.MultiPathfinderResult, ndraws::Integer;
-        rng::Random.AbstractRNG = result.rng,
-        ndraws_per_run::Int = max(
-            Pathfinder.DEFAULT_NDRAWS_ELBO,
-            cld(ndraws, max(length(result.pathfinder_results), 1)),
-        ),
-        importance::Bool = result.psis_result !== nothing,
-    )
-
-    ndraws > 0 || throw(ArgumentError("`ndraws` must be positive."))
-    ndraws_per_run > 0 || throw(ArgumentError("`ndraws_per_run` must be positive."))
-
-    pathfinder_results = result.pathfinder_results
-    nruns = length(pathfinder_results)
-
-    nruns > 0 || throw(ArgumentError("`result.pathfinder_results` is empty."))
-
-    fit_distributions = map(r -> r.fit_distribution, pathfinder_results)
-
-    # Draw fresh proposal samples from each single-path approximation q_k.
-    proposal_draws_by_component = map(fit_distributions) do q
-        _rand_matrix(rng, q, ndraws_per_run)
-    end
-
-    proposal_draws = reduce(hcat, proposal_draws_by_component)
-
-    proposal_component_ids = reduce(vcat, [fill(k, ndraws_per_run) for k in 1:nruns])
-
-    inds = axes(proposal_draws, 2)
-
-    sample_inds, psis_result = if importance
-        log_densities_fit = reduce(
-            vcat,
-            map(_logpdf_eachcol, fit_distributions, proposal_draws_by_component),
-        )
-
-        log_densities_target = [
-            result.logp(@view proposal_draws[:, j]) for j in axes(proposal_draws, 2)
-        ]
-
-        log_densities_ratios = log_densities_target .- log_densities_fit
-
-        Pathfinder.resample(rng, inds, log_densities_ratios, ndraws)
-    else
-        Pathfinder.resample(rng, inds, ndraws), nothing
-    end
-
-    draws = proposal_draws[:, sample_inds]
-    draw_component_ids = proposal_component_ids[sample_inds]
-
-    if result.input isa PEtabBayes.PEtabBayesLogDensity
-        inference_info = result.input.inference_info
-        draws = PEtabBayes._to_petab_scale(draws, inference_info)
-        proposal_draws = PEtabBayes._to_petab_scale(proposal_draws, inference_info)
-    end
-
-    return (
-        draws = draws,
-        draw_component_ids = draw_component_ids,
-        psis_result = psis_result,
-        proposal_draws = proposal_draws,
-        proposal_component_ids = proposal_component_ids,
-    )
-end
+function sample_pathfinder_result end
