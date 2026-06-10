@@ -47,11 +47,9 @@ function Random.rand(
     draw = rand(rng, q.inference_scale_distribution)
     return _to_petab_scale(draw, q.inference_info)
 end
-
 function Random.rand(q::ParameterScaleVariationalDistribution)
     return rand(Random.default_rng(), q)
 end
-
 function Random.rand(
         rng::Random.AbstractRNG,
         q::ParameterScaleVariationalDistribution,
@@ -66,7 +64,6 @@ function Random.rand(
 
     return draws_petab_scale
 end
-
 function Random.rand(q::ParameterScaleVariationalDistribution, n_samples::Integer)
     return rand(Random.default_rng(), q, n_samples)
 end
@@ -78,7 +75,6 @@ function optimize(
     @argcheck max_iter > 0
     return _optimize(algorithm, max_iter, prob, q_init, args...; kwargs...)
 end
-
 function optimize(
         rng::Random.AbstractRNG, algorithm, max_iter::Integer,
         prob::PEtabBayesLogDensity, q_init,
@@ -89,4 +85,3 @@ function optimize(
 end
 
 function _optimize end
-function _vi_initialization_to_inference_scale end
