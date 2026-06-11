@@ -51,6 +51,12 @@ function to_prior_scale(
     return x_prior_scale
 end
 
+function _to_inference_scale(
+        x_petab_scale::AbstractVector, target::PEtabBayesLogDensity
+    )::AbstractVector
+    return target.inference_info.bijectors(to_prior_scale(x_petab_scale, target))
+end
+
 function _gradient_to_inference_scale!(
         grad::T, x_inference::T, x_petab_scale::T, inference_info::InferenceInfo
     )::Nothing where {T <: AbstractVector{<:Real}}

@@ -4,6 +4,8 @@ LogDensityProblems.dimension(p::PEtabBayesLogDensity) = p.dim
 
 LogDensityProblems.capabilities(::PEtabBayesLogDensity) = LogDensityProblems.LogDensityOrder{1}()
 
+LogDensityProblems.capabilities(::Type{<:PEtabBayesLogDensity}) = LogDensityProblems.LogDensityOrder{1}()
+
 LogDensityProblems.logdensity_and_gradient(p::PEtabBayesLogDensity, x) = _log_target_gradient(x, p)
 
 function _log_target(

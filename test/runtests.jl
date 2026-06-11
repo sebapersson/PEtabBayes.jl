@@ -23,3 +23,7 @@ end
 @safetestset "Multipathfinder wrapper" begin
     include("multipathfinder.jl")
 end
+
+@safetestset "AdvancedVI optimize wrapper" begin
+    include("advanced_vi.jl")
+end
