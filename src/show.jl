@@ -3,6 +3,7 @@
     exported to the user.
 =#
 import Base.show
+import StatsBase
 
 StyledStrings.addface!(:PURPLE => StyledStrings.Face(foreground = 0x008f4093))
 
@@ -20,7 +21,7 @@ end
 
 Print summary and configuration statistics for `logdensity`
 """
-function describe(logdensity::PEtabBayesLogDensity)
+function StatsBase.describe(logdensity::PEtabBayesLogDensity)
     return print(_describe(logdensity))
 end
 

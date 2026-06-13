@@ -94,3 +94,44 @@ function _sample_prior(
     copyto!(x, inference_info.bijectors(_x))
     return x
 end
+
+function _default_uniform_prior_bounds(scale::Symbol)::Tuple{Float64, Float64}
+    lower_bound = 1.0e-3
+    upper_bound = 1.0e3
+    if scale === :log10
+        return log10(lower_bound), log10(upper_bound)
+    elseif scale === :log
+        return log(lower_bound), log(upper_bound)
+    elseif scale === :log2
+        return log2(lower_bound), log2(upper_bound)
+    end
+    return lower_bound, upper_bound
+end
+function _default_uniform_prior(
+        parameter_name::Symbol, parameter_scale::Symbol,
+        lower_bound_parameter_scale::Float64, upper_bound_parameter_scale::Float64,
+        lower_bound_linear_scale::Float64, upper_bound_linear_scale::Float64,
+        petab_version::String, defined_in_julia::Bool
+    )
+    if petab_version == "2.0.0" || defined_in_julia == true
+        prior_scale = :lin
+        lower_bound = lower_bound_linear_scale
+        upper_bound = upper_bound_linear_scale
+        bounds_scale = "linear"
+    else
+        prior_scale = parameter_scale === :lin ? :lin : :parameter_scale
+        lower_bound = lower_bound_parameter_scale
+        upper_bound = upper_bound_parameter_scale
+        bounds_scale = prior_scale === :parameter_scale ? "parameter" : "linear"
+    end
+
+    if isinf(lower_bound) || isinf(upper_bound)
+        @warn "Lower or upper bound for parameter $(parameter_name) is -inf and/or inf \
+            on the $(bounds_scale) scale. Assigning default Uniform prior with \
+            linear-scale fallback bounds 1e-3 and 1e3"
+        fallback_scale = prior_scale === :parameter_scale ? parameter_scale : :lin
+        lower_bound, upper_bound = _default_uniform_prior_bounds(fallback_scale)
+    end
+
+    return Uniform(lower_bound, upper_bound), prior_scale
+end

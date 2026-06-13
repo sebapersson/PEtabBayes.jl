@@ -20,7 +20,7 @@ include(joinpath(@__DIR__, "common.jl"))
 
     @testset "describe() function" begin
         c = IOCapture.capture() do
-            PEtabBayes.describe(target)
+            describe(target)
         end
 
         expected =
