@@ -190,7 +190,7 @@ struct PEtabPredictiveCheck
     pre_equilibration_id::Union{Symbol, Nothing}
     experiment_id::Union{Symbol, Nothing}
     source::Symbol
-    level::Symbol
+    level::Vector{Symbol}
     n_draws::Int
     observables::Vector{PredictiveObservable}
 end

@@ -104,6 +104,7 @@ function sample(
     for (j, prior) in pairs(priors)
         draws[:, j, 1] .= rand(rng, prior, n_samples)
     end
+    # TODO: Drop draws we cannot evaluate?
 
     chain = Chains(draws, parameters_id)
     return setinfo(chain, merge(chain.info, (source = :prior,)))

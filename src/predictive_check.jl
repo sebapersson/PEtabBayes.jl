@@ -1,11 +1,60 @@
+"""
+    predictive_check(
+        [rng::AbstractRNG, ] chains::Chains, target::PEtabBayesLogDensity; condition = nothing,
+        experiment = nothing, observable_ids = nothing, n_draws = nothing, n_tsave = 50,
+        model_fit = true, data_fit = true
+    )
+
+Compute a prior or posterior predictive check for a single simulation condition.
+
+For each observable measured in the condition, the model is simulated across the parameter
+draws in `chains`. Two views can be produced. The model fit (`model_fit`) summarizes the
+model's predicted observable across the draws, reflecting parameter uncertainty in the ODE
+model alone. The data fit (`data_fit`) further samples the measurement error model around
+each prediction, so it reflects both parameter uncertainty and observation noise, and is
+the view compared directly against the data. Returns a [`PEtabPredictiveCheck`](@ref),
+which is plotted with `plot(pc, :model_fit)` or `plot(pc, :data_fit)`.
+
+The draws are taken from the `chains` returned by [`sample`](@ref), pooled across all
+chains and thinned to `n_draws` samples.
+
+# Arguments
+- `chains`: Prior or posterior draws, as returned by [`sample`](@ref).
+- `target`: The `PEtabBayesLogDensity`, used both to sample the model.
+
+# Keyword arguments
+- `condition` / `experiment`: Select the condition, resolved as in `PEtab.get_odesol`; a
+  `pre_eq => sim` `Pair` for PEtab v1 pre-equilibration, or `experiment` for PEtab v2.0.0.
+  When neither is given the model's default condition is used.
+- `observable_ids`: Restrict to a subset of observables. `nothing` uses every observable
+  measured in the condition.
+- `n_draws`: Number of parameter draws to use, thinned evenly from the chain. Defaults to
+  `min(5000, n_samples)`.
+- `n_tsave`: Number of time points in the dense grid used for the model-fit trajectories.
+- `model_fit`: Whether to compute the latent model-fit trajectories.
+- `data_fit`: Whether to compute the data-level predictive replicates.
+"""
 function predictive_check(
-        chains::Chains, target::PEtabBayesLogDensity;
+        chains::Chains, target::PEtabBayesLogDensity; kwargs...
+    )::PEtabPredictiveCheck
+    rng = Random.default_rng()
+    return predictive_check(rng, chains, target; kwargs...)
+end
+function predictive_check(
+        rng::Random.AbstractRNG, chains::Chains, target::PEtabBayesLogDensity;
         condition::Union{PEtab.ConditionExp, Nothing} = nothing,
         experiment::Union{PEtab.ConditionExp, Nothing} = nothing,
         observable_ids::Union{Vector{Symbol}, Nothing} = nothing,
-        n_draws::Union{Nothing, Integer} = nothing,
-        source::Symbol = _infer_source(chains), n_tsave::Integer = 50,
+        n_draws::Union{Nothing, Integer} = nothing, source::Symbol = _infer_source(chains),
+        n_tsave::Integer = 50, model_fit::Bool = true, data_fit::Bool = true
     )::PEtabPredictiveCheck
+    @argcheck model_fit || data_fit
+    @argcheck source in (:prior, :posterior)
+
+    level = Symbol[]
+    model_fit && push!(level, :model_fit)
+    data_fit && push!(level, :data_fit)
+
     # Check user provided ids
     model_info = target.prob.model_info
     PEtab._check_experiment_id(condition, experiment, model_info)
@@ -35,61 +84,96 @@ function predictive_check(
         idata = PEtab._get_index_data(condition, experiment, observable_id, model_info)
         isempty(idata) && continue
         predictive_observable = PredictiveObservable(
-            target, sample_values, observable_id, condition, experiment, n_tsave
+            rng, target, sample_values, observable_id, condition, experiment, n_tsave,
+            model_fit, data_fit
         )
         push!(predictive_observables, predictive_observable)
     end
 
     return PEtabPredictiveCheck(
-        simulation_id, pre_equilibration_id, experiment_id, source, :fit, n_draws,
+        simulation_id, pre_equilibration_id, experiment_id, source, level, n_draws,
         predictive_observables
     )
 end
 
+# TODO: Optimize to only require on ODE-solve for both model and data fit
 function PredictiveObservable(
-        target::PEtabBayesLogDensity, sample_values::Matrix{Float64},
-        observable_id::String, condition, experiment, n_tsave::Integer
+        rng::Random.AbstractRNG, target::PEtabBayesLogDensity,
+        sample_values::Matrix{Float64}, observable_id::String, condition, experiment,
+        n_tsave::Integer, model_fit::Bool, data_fit::Bool
     )::PredictiveObservable
+    # Observed values
+    model_info = target.prob.model_info
+    measurements_df = target.prob.model_info.model.petab_tables[:measurements]
+    idata = PEtab._get_index_data(condition, experiment, observable_id, model_info)
+    t_obs = measurements_df[idata, :time]
+    h_obs = measurements_df[idata, :measurement]
+
     n_draws = size(sample_values, 1)
-    h_matrix = zeros(Float64, n_tsave, n_draws)
-    cols_drop = Int64[]
-    model_fit_ref = Any[]
+    if model_fit == true
+        h_matrix = zeros(Float64, n_tsave, n_draws)
+        cols_drop = Int64[]
+        model_fit_ref = Any[]
+        for row_idx in 1:n_draws
+            x_prior_scale = sample_values[row_idx, :]
+            x_petab_scale = _prior_to_petab_scale(x_prior_scale, target.inference_info)
 
-    for row_idx in 1:n_draws
-        x_prior_scale = sample_values[row_idx, :]
-        x_petab_scale = similar(x_prior_scale)
-        for i in eachindex(x_petab_scale)
-            target.inference_info.priors_scale[i] === :parameter_scale && continue
-            x_petab_scale[i] = PEtab.transform_x(
-                x_prior_scale[i], target.inference_info.parameters_scale[i],
-                to_xscale = true
+            model_fit = PEtab._get_observable(
+                x_petab_scale, target.prob, condition, experiment, observable_id;
+                n_tsave = n_tsave
             )
-        end
 
-        model_fit = PEtab._get_observable(
-            x_petab_scale, target.prob, condition, experiment, observable_id;
-            n_tsave = n_tsave
-        )
+            # Could not solve the ODE for provided parameter
+            if isempty(model_fit.h_mod)
+                push!(cols_drop, row_idx)
+                continue
+            end
 
-        # Could not solve the ODE for provided parameter
-        if isempty(model_fit.h_mod)
-            push!(cols_drop, row_idx)
-            continue
+            # Save to build the struct
+            if isempty(model_fit_ref)
+                push!(model_fit_ref, model_fit)
+            end
+            h_matrix[:, row_idx] .= model_fit.h_mod
+            h_matrix[:, Not(cols_drop)]
         end
-
-        # Save to build the struct
-        if isempty(model_fit_ref)
-            push!(model_fit_ref, model_fit)
-        end
-        h_matrix[:, row_idx] .= model_fit.h_mod
+        t_mod = model_fit_ref[1].t_mod
+    else
+        h_matrix = zeros(Float64, 0, 0)
+        t_mod = Float64[]
     end
 
-    observables_df = target.prob.model_info.model.petab_tables[:observables]
+    if data_fit == true
+        y_rep = zeros(Float64, length(idata), n_draws)
+        cols_drop = Int64[]
+
+        # View to avoid allocating new memory every iteration
+        petab_measurements = model_info.petab_measurements
+        h_mod = @view petab_measurements.simulated_values[idata]
+        sigma_mod = @view petab_measurements.sigma_values[idata]
+        dist_mod = @view petab_measurements.noise_distributions[idata]
+
+        for row_idx in 1:n_draws
+            x_prior_scale = sample_values[row_idx, :]
+            x_petab_scale = _prior_to_petab_scale(x_prior_scale, target.inference_info)
+
+            nllh_val = target.prob.nllh(x_petab_scale)
+            if isinf(nllh_val)
+                push!(cols_drop, row_idx)
+                continue
+            end
+
+            y_rep[:, row_idx] .= _get_y_rep(rng, h_mod, sigma_mod, dist_mod)
+        end
+        y_rep = y_rep[:, Not(cols_drop)]
+    else
+        y_rep = zeros(Float64, 0, 0)
+    end
+
+    observables_df = model_info.model.petab_tables[:observables]
     obs_idx = findfirst(x -> x == observable_id, observables_df.observableId)
     return PEtabBayes.PredictiveObservable(
-        Symbol(observable_id), observables_df.observableFormula[obs_idx],
-        model_fit_ref[1].t_mod, h_matrix[:, Not(cols_drop)], model_fit_ref[1].t_obs,
-        model_fit_ref[1].h_obs, zeros(0, 0)
+        Symbol(observable_id), observables_df.observableFormula[obs_idx], t_mod, h_matrix,
+        t_obs, h_obs, y_rep
     )
 end
 
@@ -112,4 +196,29 @@ function _get_samples(
     end
     rows = unique(round.(Int, range(1, n_samples; length = n_draws)))
     return sample_values[rows, :]
+end
+
+function _get_y_rep(
+        rng::Random.AbstractRNG, h::AbstractVector{<:Real}, sigma::AbstractVector{<:Real},
+        noise_distributions::AbstractVector{Symbol};
+    )::Vector{Float64}
+    y_rep = zeros(Float64, length(h))
+    for i in eachindex(h, sigma, noise_distributions)
+        dist, transform = PEtab.NOISE_DISTRIBUTIONS[noise_distributions[i]]
+        y_rep[i] = rand(rng, dist(transform(h[i]), sigma[i]))
+    end
+    return y_rep
+end
+
+function _prior_to_petab_scale(
+        x_prior_scale::T, inference_info::InferenceInfo
+    )::T where T <: AbstractVector{<:Real}
+    x_petab_scale = similar(x_prior_scale)
+    for i in eachindex(x_petab_scale)
+        inference_info.priors_scale[i] === :parameter_scale && continue
+        x_petab_scale[i] = PEtab.transform_x(
+            x_prior_scale[i], inference_info.parameters_scale[i], to_xscale = true
+        )
+    end
+    return x_petab_scale
 end
