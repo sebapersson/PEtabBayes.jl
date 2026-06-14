@@ -23,7 +23,7 @@ function Base.show(io::IO, pc::PEtabPredictiveCheck)
 
     header = StyledStrings.StyledMarkup.styled"{PURPLE:{bold:PEtabPredictiveCheck}} {emphasis:$(pc.source)} for $cond_str"
     body = "\n  observables: $observables\n  $(pc.n_draws) draws ($views)"
-    print(io, StyledStrings.StyledMarkup.styled"$header$body")
+    return print(io, StyledStrings.StyledMarkup.styled"$header$body")
 end
 
 """

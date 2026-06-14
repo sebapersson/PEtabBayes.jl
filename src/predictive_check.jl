@@ -201,7 +201,7 @@ end
 
 function _get_y_rep(
         rng::Random.AbstractRNG, h::AbstractVector{<:Real}, sigma::AbstractVector{<:Real},
-        noise_distributions::AbstractVector{Symbol};
+        noise_distributions::AbstractVector{Symbol}
     )::Vector{Float64}
     y_rep = zeros(Float64, length(h))
     for i in eachindex(h, sigma, noise_distributions)
@@ -213,7 +213,7 @@ end
 
 function _prior_to_petab_scale(
         x_prior_scale::T, inference_info::InferenceInfo
-    )::T where T <: AbstractVector{<:Real}
+    )::T where {T <: AbstractVector{<:Real}}
     x_petab_scale = similar(x_prior_scale)
     for i in eachindex(x_petab_scale)
         inference_info.priors_scale[i] === :parameter_scale && continue

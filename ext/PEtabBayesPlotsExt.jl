@@ -21,11 +21,14 @@ Plots.@recipe function f(
     )
     @argcheck plot_type in (:model_fit, :data_fit)
     if !in(plot_type, pc.level)
-        throw(ArgumentError(
-            "The predictive check holds no $plot_type values; recompute predictive_check \
-             with $(plot_type === :data_fit ? "data_fit = true" : "model_fit = true"), or \
-             pass plot_type = $(first(pc.level))"
-        ))
+        throw(
+            ArgumentError(
+                "The predictive check holds no $plot_type values; recompute \
+                 predictive_check with \
+                 $(plot_type === :data_fit ? "data_fit = true" : "model_fit = true"), or \
+                 pass plot_type = $(first(pc.level))"
+            )
+        )
     end
 
     observables = _select_observables(pc, observable_ids)
