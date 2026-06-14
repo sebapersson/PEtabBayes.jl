@@ -39,8 +39,11 @@ function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
         # In case the parameter lacks a defined prior we default to a Uniform
         # on parameter scale with lb and ub as bounds
         if !in(ix, priors.ix_prior)
-            lower_bound_linear_scale = isnothing(iθ) ? lower_bounds[ix] : petab_parameters.lower_bounds[iθ]
-            upper_bound_linear_scale = isnothing(iθ) ? upper_bounds[ix] : petab_parameters.upper_bounds[iθ]
+            lower_bound_linear_scale, upper_bound_linear_scale = if isnothing(iθ)
+                (lower_bounds[ix], upper_bounds[ix])
+            else
+                (petab_parameters.lower_bounds[iθ], petab_parameters.upper_bounds[iθ])
+            end
             priors_dist[ix], priors_scale[ix] = _default_uniform_prior(
                 parameter_names[ix], parameters_scale[ix], lower_bounds[ix],
                 upper_bounds[ix], lower_bound_linear_scale, upper_bound_linear_scale,
@@ -84,10 +87,9 @@ PEtabBayesLogDensity(prob::PEtabODEProblem)
 
 Create a `LogDensityProblem` using the posterior and gradient functions from `prob`.
 
-This [`LogDensityProblem` interface](https://github.com/tpapp/LogDensityProblems.jl)
-defines everything needed to perform Bayesian inference with packages such as
-`AdvancedHMC.jl` (which includes algorithms like NUTS, used by `Turing.jl`), and
-`AdaptiveMCMC.jl`.
+This [`LogDensityProblem` interface](https://github.com/tpapp/LogDensityProblems.jl) defines
+everything needed to perform Bayesian inference with packages such as `AdvancedHMC.jl`
+(which includes algorithms like NUTS, used by `Turing.jl`), and `AdaptiveMCMC.jl`.
 """
 struct PEtabBayesLogDensity{
         T <: InferenceInfo,
@@ -128,13 +130,13 @@ Instances are normally created by [`predictive_check`](@ref) and consumed by the
 - `observable_formula::String`: The observable formula, for use as a plot label.
 - `t_model::Vector{Float64}`: Time points of the latent model trajectories. A dense grid
    when the observable has no observable parameters; otherwise the measured time points.
-- `h::Matrix{Float64}`: Latent model output for the observable, of size
+- `h::Matrix{Float64}`: Model output for the observable, of size
   `(length(t_model), n_draws)`.
 - `t_obs::Vector{Float64}`: Time points of the measured data for this observable.
 - `y_obs::Vector{Float64}`: Measured data values at `t_obs`.
 - `y_rep::Matrix{Float64}`: Data-level predictive draws at `t_obs`, of size
   `(length(t_obs), n_draws)`, obtained by sampling the measurement error model around the
-  latent output. Empty (`0×0`) when the predictive check is performed on the `:fit` level.
+  model output.
 
 See also [`PEtabPredictiveCheck`](@ref).
 """
@@ -164,9 +166,9 @@ parameter vectors drawn from either the prior or the posterior.
 - `experiment_id::Union{Symbol, Nothing}`: Experiment identifier for PEtab v2.0.0 problems,
   or `nothing` for earlier PEtab versions.
 - `source::Symbol`: Origin of the parameter draws, either `:prior` or `:posterior`.
-- `level::Symbol`: Level of the predictive check. `:fit` stores only the latent model
-  trajectories; `:data` additionally stores data-level draws (`y_rep`) sampled from the
-  measurement error model.
+- `level::Vector{Symbol}`: Which views were computed; a non-empty subset of `:model_fit`
+  and `:data_fit`. `:model_fit` stores the latent model trajectories (`h`); `:data_fit`
+  stores the data-level draws (`y_rep`) sampled from the measurement error model.
 - `n_draws::Int`: Number of parameter draws used, i.e. the number of columns in each `h`
   (and `y_rep`).
 - `observables::Vector{PredictiveObservable}`: Predictive trajectories for each observable
@@ -179,11 +181,10 @@ queried with [`observable_ids`](@ref):
 
 ```julia
 pc[:obs_id]            # the PredictiveObservable for :obs_id
-observable_ids(pc)     # all observable ids, in plotting order
 length(pc)             # number of observables
 ```
 
-See also [`predictive_check`](@ref) and [`PredictiveObservable`](@ref).
+See also [`predictive_check`](@ref).
 """
 struct PEtabPredictiveCheck
     simulation_id::Symbol
@@ -193,15 +194,6 @@ struct PEtabPredictiveCheck
     level::Vector{Symbol}
     n_draws::Int
     observables::Vector{PredictiveObservable}
-end
-
-"""
-    observable_ids(pc::PEtabPredictiveCheck) -> Vector{Symbol}
-
-Return the `observable_id` of every observable stored in `pc`, in plotting order.
-"""
-function observable_ids(pc::PEtabPredictiveCheck)::Vector{Symbol}
-    return [obs.observable_id for obs in pc.observables]
 end
 
 Base.length(pc::PEtabPredictiveCheck)::Int = length(pc.observables)
