@@ -8,8 +8,16 @@ end
     include("bijectors.jl")
 end
 
+@safetestset "Sample prior" begin
+    include("sample_prior.jl")
+end
+
 @safetestset "Bayesian inference" begin
     include("inference.jl")
+end
+
+@safetestset "Predictive checks" begin
+    include("predictive_check.jl")
 end
 
 @safetestset "Error throwing" begin

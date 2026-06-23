@@ -3,30 +3,41 @@
     exported to the user.
 =#
 import Base.show
+import StatsBase
 
 StyledStrings.addface!(:PURPLE => StyledStrings.Face(foreground = 0x008f4093))
 
-function show(io::IO, logdensity::PEtabBayesLogDensity)
-    @unpack prob, dim = logdensity
+function show(io::IO, log_target::PEtabBayesLogDensity)
+    @unpack prob, dim = log_target
     name = prob.model_info.model.name
     nest = @sprintf("%d", dim)
     header = StyledStrings.StyledMarkup.styled"{PURPLE:{bold:PEtabBayesLogDensity}} {emphasis:$(name)}: $nest parameters \
-        to infer\n(for more statistics, call `describe(logdensity)`)\n"
+        to infer\n(for more statistics, call `describe(log_target)`)\n"
     return print(io, StyledStrings.StyledMarkup.styled"$(header)")
 end
+function Base.show(io::IO, pc::PEtabPredictiveCheck)
+    cond = pc.experiment_id in (nothing, :nothing) ? pc.simulation_id : pc.experiment_id
+    cond_str = cond === :__c0__ ? "the default condition" : "condition $cond"
+    observables = join((o.observable_id for o in pc.observables), ", ")
+    views = join(pc.level, ", ")
 
-"""
-    describe(logdensity::PEtabBayesLogDensity)
-
-Print summary and configuration statistics for `logdensity`
-"""
-function describe(logdensity::PEtabBayesLogDensity)
-    return print(_describe(logdensity))
+    header = StyledStrings.StyledMarkup.styled"{PURPLE:{bold:PEtabPredictiveCheck}} {emphasis:$(pc.source)} for $cond_str"
+    body = "\n  observables: $observables\n  $(pc.n_draws) draws ($views)"
+    return print(io, StyledStrings.StyledMarkup.styled"$header$body")
 end
 
-function _describe(logdensity::PEtabBayesLogDensity; styled::Bool = true)
+"""
+    describe(log_target::PEtabBayesLogDensity)
+
+Print summary and configuration statistics for `log_target`
+"""
+function StatsBase.describe(log_target::PEtabBayesLogDensity)
+    return print(_describe(log_target))
+end
+
+function _describe(log_target::PEtabBayesLogDensity; styled::Bool = true)
     # Get problem statistics
-    @unpack inference_info, dim, f_prior_correction, prob = logdensity
+    @unpack inference_info, dim, f_prior_correction, prob = log_target
     model = prob.model_info.model
     name = model.name
     nstates = @sprintf("%d", length(PEtab._get_state_ids(model.sys_mutated)))
@@ -55,8 +66,8 @@ function _describe(logdensity::PEtabBayesLogDensity; styled::Bool = true)
     end
 end
 
-function parameters(logdensity::PEtabBayesLogDensity)
-    @unpack inference_info, dim, f_prior_correction, prob = logdensity
+function parameters(log_target::PEtabBayesLogDensity)
+    @unpack inference_info, dim, f_prior_correction, prob = log_target
     function _format_prior(prior)
         name = Base.typename(typeof(prior)).name
         param_names = fieldnames(typeof(prior))
@@ -68,5 +79,4 @@ function parameters(logdensity::PEtabBayesLogDensity)
     priors_stat = "  Priors :\n$(priors_formatted)\n"
 
     return StyledStrings.StyledMarkup.styled"$(priors_stat)"
-
 end

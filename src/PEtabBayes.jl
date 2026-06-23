@@ -12,6 +12,7 @@ import Random
 using SimpleUnPack: @unpack
 import StyledStrings
 using Printf: @sprintf
+import InvertedIndices: Not
 
 const ContDistribution = Distribution{Univariate, Continuous}
 const InputVector = Union{Vector{<:Real}, ComponentArray{<:Real}}
@@ -27,8 +28,9 @@ include("sample.jl")
 include("show.jl")
 include("pathfinder.jl")
 include("advanced_vi.jl")
+include("predictive_check.jl")
 
-export PEtabBayesLogDensity, to_prior_scale, sample, describe, parameters, multipathfinder,
-    optimize
+export PEtabBayesLogDensity, PEtabPrior, to_prior_scale, sample, parameters,
+    multipathfinder, optimize, predictive_check
 
 end

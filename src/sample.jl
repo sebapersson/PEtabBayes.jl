@@ -54,6 +54,7 @@ This is a wrapper around `AdvancedHMC.sample` from
 `sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`.
 
 # Arguments
+- `log_target`: Log-posterior density to sample from.
 - `alg`: AdvancedHMC.jl sampler. The following samplers are supported:
   - `NUTS` (recommended): No-U-Turn Sampler.
   - `HMC`: Hamiltonian Monte Carlo.
@@ -69,6 +70,48 @@ Keyword arguments are passed to `AdvancedHMC.sample`. Supported keyword argument
 - `progress::Bool = false`: Whether to show a progress meter.
 """
 function sample(log_target::PEtabBayesLogDensity; kwargs...)
+end
+"""
+    sample(
+        [rng::AbstractRNG, ] log_target::PEtabBayesLogDensity, alg::PEtabPrior, n_samples
+    )
+
+Draw `n_samples` independent samples from the prior defined by `log_target`. Returns an
+`MCMCChains.Chains`.
+
+`log_target` has the same meaning as in
+`sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`. Unlike the
+posterior `sample` methods, this draws directly and independently from the prior
+distributions, so no sampler configuration or initial point `x0` is required.
+
+# Arguments
+- `log_target`: Log-posterior density to sample from.
+- `alg`: The `PEtabPrior()` marker, which selects prior sampling.
+- `n_samples`: Number of prior samples to draw.
+"""
+function sample(
+        log_target::PEtabBayesLogDensity, alg::PEtabPrior, n_samples::Integer
+    )::Chains
+    return sample(Random.default_rng(), log_target, alg, n_samples)
+end
+function sample(
+        rng::Random.AbstractRNG, log_target::PEtabBayesLogDensity, ::PEtabPrior,
+        n_samples::Integer
+    )::Chains
+    @argcheck n_samples > 0
+    @unpack priors, parameters_id = log_target.inference_info
+
+    # TODO: draws are on the prior scale, matching the posterior `_to_chains_*` helpers.
+    # TODO: Converting both to the PEtab parameter scale is deferred to a later PR.
+    n_parameters = length(parameters_id)
+    draws = Array{Float64, 3}(undef, n_samples, n_parameters, 1)
+    for (j, prior) in pairs(priors)
+        draws[:, j, 1] .= rand(rng, prior, n_samples)
+    end
+    # TODO: Drop draws we cannot evaluate?
+
+    chain = Chains(draws, parameters_id)
+    return setinfo(chain, merge(chain.info, (source = :prior,)))
 end
 
 function _sample end

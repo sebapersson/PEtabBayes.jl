@@ -11,11 +11,12 @@ function _to_chains_advanced_hmc(
     end
 
     if isnothing(start_time) || isnothing(end_time)
-        return Chains(out, inference_info.parameters_id)
+        chain = Chains(out, inference_info.parameters_id)
     else
         _chain = Chains(out, inference_info.parameters_id)
-        return setinfo(_chain, (start_time = start_time, stop_time = end_time))
+        chain = setinfo(_chain, (start_time = start_time, stop_time = end_time))
     end
+    return setinfo(chain, merge(chain.info, (source = :posterior,)))
 end
 
 function _to_chains_adaptive_mcmc(
@@ -32,9 +33,10 @@ function _to_chains_adaptive_mcmc(
     end
 
     if isnothing(start_time) || isnothing(end_time)
-        return Chains(out, inference_info.parameters_id)
+        chain = Chains(out, inference_info.parameters_id)
     else
         _chain = Chains(out, inference_info.parameters_id)
-        return setinfo(_chain, (start_time = start_time, stop_time = end_time))
+        chain = setinfo(_chain, (start_time = start_time, stop_time = end_time))
     end
+    return setinfo(chain, merge(chain.info, (source = :posterior,)))
 end

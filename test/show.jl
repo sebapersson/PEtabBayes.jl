@@ -15,12 +15,12 @@ include(joinpath(@__DIR__, "common.jl"))
     @testset "show() function" begin
         @test "$target" ==
             "PEtabBayesLogDensity ODESystemModel: 3 parameters to infer\n" *
-            "(for more statistics, call `describe(logdensity)`)\n"
+            "(for more statistics, call `describe(log_target)`)\n"
     end
 
     @testset "describe() function" begin
         c = IOCapture.capture() do
-            PEtabBayes.describe(target)
+            describe(target)
         end
 
         expected =
@@ -47,4 +47,12 @@ include(joinpath(@__DIR__, "common.jl"))
 
         @test "$(PEtabBayes.parameters(target))" == expected
     end
+
+    # Predictive plots
+    chain_prior = PEtabBayes.sample(target, PEtabPrior(), 100000)
+    prior_predictive = predictive_check(
+        chain_prior, target; n_tsave = 25, n_draws = 1000, data_fit = false
+    )
+    @test "$(prior_predictive)" == "PEtabPredictiveCheck prior for the default \
+        condition\n  observables: obs_X\n  1000 draws (model_fit)"
 end

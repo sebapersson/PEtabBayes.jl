@@ -12,50 +12,6 @@ struct InferenceInfo{
     parameters_scale::Vector{Symbol}
     parameters_id::Vector{Symbol}
 end
-function _default_uniform_prior_bounds(scale::Symbol)::Tuple{Float64, Float64}
-    lower_bound = 1.0e-3
-    upper_bound = 1.0e3
-    if scale === :log10
-        return log10(lower_bound), log10(upper_bound)
-    elseif scale === :log
-        return log(lower_bound), log(upper_bound)
-    elseif scale === :log2
-        return log2(lower_bound), log2(upper_bound)
-    end
-    return lower_bound, upper_bound
-end
-function _default_uniform_prior(
-        parameter_name::Symbol,
-        parameter_scale::Symbol,
-        lower_bound_parameter_scale::Float64,
-        upper_bound_parameter_scale::Float64,
-        lower_bound_linear_scale::Float64,
-        upper_bound_linear_scale::Float64,
-        petab_version::String,
-    )
-    if petab_version == "2.0.0"
-        prior_scale = :lin
-        lower_bound = lower_bound_linear_scale
-        upper_bound = upper_bound_linear_scale
-        bounds_scale = "linear"
-    else
-        prior_scale = parameter_scale === :lin ? :lin : :parameter_scale
-        lower_bound = lower_bound_parameter_scale
-        upper_bound = upper_bound_parameter_scale
-        bounds_scale = prior_scale === :parameter_scale ? "parameter" : "linear"
-    end
-
-    if isinf(lower_bound) || isinf(upper_bound)
-        @warn "Lower or upper bound for parameter $(parameter_name) is -inf and/or inf \
-            on the $(bounds_scale) scale. Assigning default Uniform prior with \
-            linear-scale fallback bounds 1e-3 and 1e3"
-        fallback_scale = prior_scale === :parameter_scale ? parameter_scale : :lin
-        lower_bound, upper_bound = _default_uniform_prior_bounds(fallback_scale)
-    end
-
-    return Uniform(lower_bound, upper_bound), prior_scale
-end
-
 function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
     @unpack model_info, lower_bounds, upper_bounds, xnominal = petab_problem
     @unpack priors, petab_parameters = model_info
@@ -83,19 +39,17 @@ function InferenceInfo(petab_problem::PEtabODEProblem)::InferenceInfo
         # In case the parameter lacks a defined prior we default to a Uniform
         # on parameter scale with lb and ub as bounds
         if !in(ix, priors.ix_prior)
-            lower_bound_linear_scale = isnothing(iθ) ? lower_bounds[ix] :
-                petab_parameters.lower_bounds[iθ]
-            upper_bound_linear_scale = isnothing(iθ) ? upper_bounds[ix] :
-                petab_parameters.upper_bounds[iθ]
+            lower_bound_linear_scale, upper_bound_linear_scale = if isnothing(iθ)
+                (lower_bounds[ix], upper_bounds[ix])
+            else
+                (petab_parameters.lower_bounds[iθ], petab_parameters.upper_bounds[iθ])
+            end
             priors_dist[ix], priors_scale[ix] = _default_uniform_prior(
-                parameter_names[ix],
-                parameters_scale[ix],
-                lower_bounds[ix],
-                upper_bounds[ix],
-                lower_bound_linear_scale,
-                upper_bound_linear_scale,
-                petab_version,
+                parameter_names[ix], parameters_scale[ix], lower_bounds[ix],
+                upper_bounds[ix], lower_bound_linear_scale, upper_bound_linear_scale,
+                petab_version, model_info.model.defined_in_julia
             )
+
         else
             jx = findfirst(x -> x == ix, priors.ix_prior)
             priors_dist[ix] = priors.distributions[jx]
@@ -133,10 +87,9 @@ PEtabBayesLogDensity(prob::PEtabODEProblem)
 
 Create a `LogDensityProblem` using the posterior and gradient functions from `prob`.
 
-This [`LogDensityProblem` interface](https://github.com/tpapp/LogDensityProblems.jl)
-defines everything needed to perform Bayesian inference with packages such as
-`AdvancedHMC.jl` (which includes algorithms like NUTS, used by `Turing.jl`), and
-`AdaptiveMCMC.jl`.
+This [`LogDensityProblem` interface](https://github.com/tpapp/LogDensityProblems.jl) defines
+everything needed to perform Bayesian inference with packages such as `AdvancedHMC.jl`
+(which includes algorithms like NUTS, used by `Turing.jl`), and `AdaptiveMCMC.jl`.
 """
 struct PEtabBayesLogDensity{
         T <: InferenceInfo,
@@ -162,3 +115,100 @@ end
 function (logpotential::PEtabBayesLogDensity)(x)
     return logpotential.logtarget(x)
 end
+
+"""
+    PredictiveObservable
+
+Prior or posterior predictive trajectories for a single observable within one simulation
+condition.
+
+Instances are normally created by [`predictive_check`](@ref) and consumed by the
+`PEtabPredictiveCheck` plotting recipe; they are rarely constructed by hand.
+
+# Fields
+- `observable_id::Symbol`: Identifier of the `observableId` in the PEtab observables table.
+- `observable_formula::String`: The observable formula, for use as a plot label.
+- `t_model::Vector{Float64}`: Time points of the latent model trajectories. A dense grid
+   when the observable has no observable parameters; otherwise the measured time points.
+- `h::Matrix{Float64}`: Model output for the observable, of size
+  `(length(t_model), n_draws)`.
+- `t_obs::Vector{Float64}`: Time points of the measured data for this observable.
+- `y_obs::Vector{Float64}`: Measured data values at `t_obs`.
+- `y_rep::Matrix{Float64}`: Data-level predictive draws at `t_obs`, of size
+  `(length(t_obs), n_draws)`, obtained by sampling the measurement error model around the
+  model output.
+
+See also [`PEtabPredictiveCheck`](@ref).
+"""
+struct PredictiveObservable
+    observable_id::Symbol
+    observable_formula::String
+    t_model::Vector{Float64}
+    h::Matrix{Float64}
+    t_obs::Vector{Float64}
+    y_obs::Vector{Float64}
+    y_rep::Matrix{Float64}
+end
+
+"""
+    PEtabPredictiveCheck
+
+Prior or posterior predictive check for a single simulation condition.
+
+Collects the predictive trajectories of every observable measured in one simulation
+condition (or, for PEtab v2.0.0, one experiment), from simulating the model for a set of
+parameter vectors drawn from either the prior or the posterior.
+
+# Fields
+- `simulation_id::Symbol`: Identifier of the simulation condition.
+- `pre_equilibration_id::Union{Symbol, Nothing}`: Pre-equilibration (steady-state)
+  condition applied before `simulation_id`, or `nothing` if there is none.
+- `experiment_id::Union{Symbol, Nothing}`: Experiment identifier for PEtab v2.0.0 problems,
+  or `nothing` for earlier PEtab versions.
+- `source::Symbol`: Origin of the parameter draws, either `:prior` or `:posterior`.
+- `level::Vector{Symbol}`: Which views were computed; a non-empty subset of `:model_fit`
+  and `:data_fit`. `:model_fit` stores the latent model trajectories (`h`); `:data_fit`
+  stores the data-level draws (`y_rep`) sampled from the measurement error model.
+- `n_draws::Int`: Number of parameter draws used, i.e. the number of columns in each `h`
+  (and `y_rep`).
+- `observables::Vector{PredictiveObservable}`: Predictive trajectories for each observable
+  measured in this condition, in plotting order.
+
+# Indexing
+
+Individual observables can be retrieved by their `observable_id`, and the available ids
+queried with [`observable_ids`](@ref):
+
+```julia
+pc[:obs_id]            # the PredictiveObservable for :obs_id
+length(pc)             # number of observables
+```
+
+See also [`predictive_check`](@ref).
+"""
+struct PEtabPredictiveCheck
+    simulation_id::Symbol
+    pre_equilibration_id::Union{Symbol, Nothing}
+    experiment_id::Union{Symbol, Nothing}
+    source::Symbol
+    level::Vector{Symbol}
+    n_draws::Int
+    observables::Vector{PredictiveObservable}
+end
+
+Base.length(pc::PEtabPredictiveCheck)::Int = length(pc.observables)
+
+function Base.getindex(
+        pc::PEtabPredictiveCheck, observable_id::Symbol
+    )::PredictiveObservable
+    i = findfirst(obs -> obs.observable_id == observable_id, pc.observables)
+    isnothing(i) && throw(KeyError(observable_id))
+    return pc.observables[i]
+end
+
+"""
+    PEtabPrior
+
+Sample from the prior in the PEtabBayesLogDensity.
+"""
+struct PEtabPrior end
