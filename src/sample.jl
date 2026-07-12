@@ -21,10 +21,16 @@ keyword arguments.
     Metropolis [3].
 - `n_samples`: Number of samples to draw, including burn-in.
 - `x0`: Initial parameter vector on the PEtab estimation scale, for example the output from
-  `get_x(petab_prob)`. Can be a `Vector` or `ComponentArray`.
+  `get_x(petab_prob)`. Can be a `Vector` or `ComponentArray`. To sample several chains, pass
+  a `Vector` of initial points (one per chain); the result is a single `MCMCChains.Chains`
+  with one entry along the chain dimension per initial point.
 
 # Keyword arguments
-Keyword arguments are passed to `adaptive_rwm`; see
+- `parallel::AbstractSamplingBackend = SerialSampling()`: How to run multiple chains:
+  [`SerialSampling`](@ref) (sequential), [`ThreadedSampling`](@ref) (all available threads),
+  or [`DistributedSampling`](@ref) (`nprocs` worker processes). Ignored for a single chain.
+
+Remaining keyword arguments are passed to `adaptive_rwm`; see
 [this page](https://mvihola.github.io/docs/AdaptiveMCMC.jl/#AdaptiveMCMC.adaptive_rwm).
 
 # References
@@ -34,10 +40,17 @@ Keyword arguments are passed to `adaptive_rwm`; see
 """
 function sample(
         log_target::PEtabBayesLogDensity, alg, n_samples::Integer,
-        x0::InputVector; kwargs...
+        x0::Union{InputVector, AbstractVector{<:InputVector}};
+        parallel::AbstractSamplingBackend = SerialSampling(), kwargs...
     )
     @argcheck n_samples > 0
-    return _sample(log_target, alg, n_samples, x0; kwargs...)
+
+    if x0 isa InputVector
+        return _sample(log_target, alg, n_samples, x0; kwargs...)
+    end
+
+    @argcheck !isempty(x0)
+    return _sample_chains(parallel, log_target, alg, n_samples, x0; kwargs...)
 end
 """
     sample(
@@ -51,7 +64,8 @@ This is a wrapper around `AdvancedHMC.sample` from
 [AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl).
 
 `log_target` and `x0` have the same meaning as in
-`sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`.
+`sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`; passing a
+`Vector` of initial points as `x0` samples several chains.
 
 # Arguments
 - `log_target`: Log-posterior density to sample from.
@@ -62,8 +76,10 @@ This is a wrapper around `AdvancedHMC.sample` from
 - `n_samples`: Number of samples to draw, excluding burn-in.
 
 # Keyword arguments
-Keyword arguments are passed to `AdvancedHMC.sample`. Supported keyword arguments are:
+- `parallel::AbstractSamplingBackend = SerialSampling()`: How to run multiple chains; see
+  the `AdaptiveMCMC` method. Ignored for a single chain.
 
+Remaining keyword arguments are passed to `AdvancedHMC.sample`:
 - `n_adapts::Int = min(div(n_samples, 10), 1_000)`: Number of adaptation steps.
 - `drop_warmup::Bool = true`: Whether to drop warmup samples.
 - `verbose::Bool = false`: Whether to print sampler output.
