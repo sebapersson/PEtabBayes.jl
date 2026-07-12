@@ -58,7 +58,7 @@ include(joinpath(@__DIR__, "common.jl"))
     @testset "HMC (multiple chains)" begin
         chain = PEtabBayes.sample(
             log_target, NUTS(0.8), 3000, x0s; n_adapts = 1000, drop_warmup = true,
-            progress = false, verbose = false, parallel =DistributedSampling(2)
+            progress = false, verbose = false, parallel = DistributedSampling(2)
         )
         check_stats(chain)
     end
