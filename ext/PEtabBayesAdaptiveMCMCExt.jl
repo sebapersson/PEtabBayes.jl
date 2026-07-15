@@ -34,7 +34,7 @@ function PEtabBayes._sample(
 
     start_time = Dates.now()
     res = AdaptiveMCMC.adaptive_rwm(
-        x0_inference_scale, _log_target, 200000; algorithm = _alg, kwargs...
+        x0_inference_scale, _log_target, n_samples; algorithm = _alg, kwargs...
     )
     end_time = Dates.now()
 

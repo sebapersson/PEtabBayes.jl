@@ -16,6 +16,10 @@ end
     include("inference.jl")
 end
 
+@safetestset "Multiple chains" begin
+    include("multiple_chains.jl")
+end
+
 @safetestset "Predictive checks" begin
     include("predictive_check.jl")
 end

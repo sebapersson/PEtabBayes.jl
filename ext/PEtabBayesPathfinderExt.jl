@@ -4,6 +4,7 @@ import Pathfinder
 import PEtabBayes
 import Distributions
 import Random
+import StatsBase
 
 const DEFAULT_OPTIMIZER = Pathfinder.Optim.LBFGS(
     m = Pathfinder.DEFAULT_HISTORY_LENGTH,
@@ -127,9 +128,15 @@ function PEtabBayes.sample_pathfinder_result(
 
         log_densities_ratios = log_densities_target .- log_densities_fit
 
-        Pathfinder.resample(rng, inds, log_densities_ratios, ndraws)
+        # PSIS-smoothed importance resampling. This previously delegated to an internal
+        # `Pathfinder.resample(rng, inds, log_ratios, ndraws)` method, which has since been
+        # refactored, so the equivalent step is done here directly with the public
+        # `PSIS.psis` (reached through Pathfinder) and `StatsBase.sample`.
+        psis = Pathfinder.PSIS.psis(log_densities_ratios)
+        weights = StatsBase.ProbabilityWeights(psis.weights, one(eltype(psis.weights)))
+        StatsBase.sample(rng, inds, weights, ndraws; replace = true), psis
     else
-        Pathfinder.resample(rng, inds, ndraws), nothing
+        StatsBase.sample(rng, inds, ndraws; replace = true), nothing
     end
 
     draws = proposal_draws[:, sample_inds]

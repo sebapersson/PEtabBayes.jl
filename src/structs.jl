@@ -212,3 +212,39 @@ end
 Sample from the prior in the PEtabBayesLogDensity.
 """
 struct PEtabPrior end
+
+abstract type AbstractSamplingBackend end
+
+"""
+    SerialSampling()
+
+Sample the chains one after another. Default `parallel` backend for [`sample`](@ref).
+"""
+struct SerialSampling <: AbstractSamplingBackend end
+
+"""
+    ThreadedSampling()
+
+Sample the chains in parallel using all threads available to the Julia process
+(`Threads.nthreads()`).
+
+Passed to [`sample`](@ref) via the `parallel` keyword.
+"""
+struct ThreadedSampling <: AbstractSamplingBackend end
+
+"""
+    DistributedSampling(nprocs::Integer)
+
+Sample the chains in parallel across `nprocs` worker processes using `pmap` from
+Distributed.jl.
+
+The workers are added when sampling starts and removed when it finishes, so `nprocs` should
+not exceed the number of available cores for best performance.
+"""
+struct DistributedSampling <: AbstractSamplingBackend
+    nprocs::Int
+    function DistributedSampling(nprocs::Integer)
+        @argcheck nprocs > 0
+        return new(nprocs)
+    end
+end
