@@ -121,6 +121,17 @@ log_density = PEtabBayesLogDensity(prob_test)
     exp10(prob_test.lower_bounds[2]), exp10(prob_test.upper_bounds[2]),
 )
 
+# Posterior chains are transformed from the unconstrained inference scale to
+# the PEtab parameter scale before being returned.
+x_petab_scale = get_x(prob_test)
+x_inference_scale = log_density.inference_info.bijectors(
+    PEtabBayes.to_prior_scale(x_petab_scale, log_density)
+)
+chain = PEtabBayes._to_chains_adaptive_mcmc(
+    (X = reshape(x_inference_scale, :, 1),), log_density
+)
+@test Array(chain)[1, :, 1] ≈ x_petab_scale
+
 prior, prior_scale = PEtabBayes._default_uniform_prior(
     :k1, :log10, -2.0, 1.0, 0.01, 10.0, "1.0.0", false
 )
