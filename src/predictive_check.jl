@@ -92,7 +92,7 @@ function predictive_check(
         push!(predictive_observables, predictive_observable)
     end
 
-    if source === :prior && !isempty(predictive_observables)
+    if !isempty(predictive_observables)
         n_successful = minimum(
             min(
                 model_fit ? size(observable.h, 2) : n_draws,
@@ -101,7 +101,8 @@ function predictive_check(
         )
         n_failed = n_draws - n_successful
         failure_rate = round(100 * n_failed / n_draws; digits = 2)
-        println("Prior predictive draw failure rate: $failure_rate% ($n_failed/$n_draws)")
+        source_label = uppercasefirst(string(source))
+        println("$source_label predictive draw failure rate: $failure_rate% ($n_failed/$n_draws)")
     end
 
     return PEtabPredictiveCheck(
@@ -125,7 +126,7 @@ function PredictiveObservable(
 
     n_draws = size(sample_values, 1)
     if model_fit == true
-        h_matrix = Matrix{Float64}(undef, 0, n_draws)
+        h_matrix = zeros(Float64, 0, n_draws)
         cols_drop = Int64[]
         model_fit_ref = Any[]
         for row_idx in 1:n_draws
