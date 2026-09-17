@@ -91,6 +91,19 @@ function predictive_check(
         push!(predictive_observables, predictive_observable)
     end
 
+    if !isempty(predictive_observables)
+        n_successful = minimum(
+            min(
+                model_fit ? size(observable.h, 2) : n_draws,
+                data_fit ? size(observable.y_rep, 2) : n_draws
+            ) for observable in predictive_observables
+        )
+        n_failed = n_draws - n_successful
+        failure_rate = round(100 * n_failed / n_draws; digits = 2)
+        source_label = uppercasefirst(string(source))
+        println("$source_label predictive draw failure rate: $failure_rate% ($n_failed/$n_draws)")
+    end
+
     return PEtabPredictiveCheck(
         simulation_id, pre_equilibration_id, experiment_id, source, level, n_draws,
         predictive_observables
@@ -112,7 +125,7 @@ function PredictiveObservable(
 
     n_draws = size(sample_values, 1)
     if model_fit == true
-        h_matrix = zeros(Float64, n_tsave, n_draws)
+        h_matrix = zeros(Float64, 0, n_draws)
         cols_drop = Int64[]
         model_fit_ref = Any[]
         for row_idx in 1:n_draws
@@ -125,18 +138,39 @@ function PredictiveObservable(
             )
 
             # Could not solve the ODE for provided parameter
-            if isempty(model_fit.h_mod)
+            if isempty(model_fit.h_mod) || any(x -> !isfinite(x), model_fit.h_mod)
                 push!(cols_drop, row_idx)
                 continue
+            end
+
+            # Event callbacks can add points around discontinuities in addition to the
+            # requested save grid. Keep only the common `n_tsave` grid so trajectories
+            # from different draws can be summarized pointwise.
+            if length(model_fit.t_mod) != n_tsave
+                t_grid = collect(
+                    range(first(model_fit.t_mod), last(model_fit.t_mod); length = n_tsave)
+                )
+                indices = map(t_grid) do t
+                    findlast(t_model -> isapprox(t_model, t), model_fit.t_mod)
+                end
+                if any(isnothing, indices)
+                    push!(cols_drop, row_idx)
+                    continue
+                end
+                model_fit = merge(
+                    model_fit,
+                    (t_mod = t_grid, h_mod = model_fit.h_mod[Int.(indices)]),
+                )
             end
 
             # Save to build the struct
             if isempty(model_fit_ref)
                 push!(model_fit_ref, model_fit)
+                h_matrix = zeros(Float64, length(model_fit.h_mod), n_draws)
             end
             h_matrix[:, row_idx] .= model_fit.h_mod
-            h_matrix[:, Not(cols_drop)]
         end
+        h_matrix = h_matrix[:, Not(cols_drop)]
         t_mod = model_fit_ref[1].t_mod
     else
         h_matrix = zeros(Float64, 0, 0)
@@ -158,7 +192,7 @@ function PredictiveObservable(
             x_petab_scale = _prior_to_petab_scale(x_prior_scale, log_target.inference_info)
 
             nllh_val = log_target.prob.nllh(x_petab_scale)
-            if isinf(nllh_val)
+            if !isfinite(nllh_val)
                 push!(cols_drop, row_idx)
                 continue
             end
