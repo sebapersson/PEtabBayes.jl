@@ -93,7 +93,7 @@ end
     )
 
 Draw `n_samples` independent samples from the prior defined by `log_target`. Returns an
-`MCMCChains.Chains`.
+`MCMCChains.Chains` on the PEtab parameter scale.
 
 `log_target` has the same meaning as in
 `sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`. Unlike the
@@ -117,12 +117,16 @@ function sample(
     @argcheck n_samples > 0
     @unpack priors, parameters_id = log_target.inference_info
 
-    # TODO: draws are on the prior scale, matching the posterior `_to_chains_*` helpers.
-    # TODO: Converting both to the PEtab parameter scale is deferred to a later PR.
     n_parameters = length(parameters_id)
     draws = Array{Float64, 3}(undef, n_samples, n_parameters, 1)
     for (j, prior) in pairs(priors)
         draws[:, j, 1] .= rand(rng, prior, n_samples)
+    end
+    for i in axes(draws, 1)
+        draws[i, :, 1] .= _to_petab_scale(
+            log_target.inference_info.bijectors(@view(draws[i, :, 1])),
+            log_target.inference_info,
+        )
     end
     # TODO: Drop draws we cannot evaluate?
 

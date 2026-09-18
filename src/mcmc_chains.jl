@@ -7,7 +7,7 @@ function _to_chains_advanced_hmc(
 
     out = Array{Float64, 3}(undef, (n_samples, length(inference_info.parameters_id), 1))
     for i in 1:n_samples
-        out[i, :, 1] .= inference_info.inv_bijectors(res[i].z.θ)
+        out[i, :, 1] .= _to_petab_scale(res[i].z.θ, inference_info)
     end
 
     if isnothing(start_time) || isnothing(end_time)
@@ -29,7 +29,7 @@ function _to_chains_adaptive_mcmc(
 
     out = Array{Float64, 3}(undef, (n_samples, length(inference_info.parameters_id), 1))
     for i in 1:n_samples
-        out[i, :, 1] .= inference_info.inv_bijectors(res.X[:, i])
+        out[i, :, 1] .= _to_petab_scale(res.X[:, i], inference_info)
     end
 
     if isnothing(start_time) || isnothing(end_time)

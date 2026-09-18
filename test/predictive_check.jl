@@ -29,7 +29,7 @@ prior_predictive = predictive_check(
 sample_values = PEtabBayes._get_samples(chain_prior, 2500)
 h_test = similar(prior_predictive[:obs_X].h)
 for i in axes(sample_values, 1)
-    x = [sample_values[i, 1], log10(sample_values[i, 2]), log10(sample_values[i, 3])]
+    x = sample_values[i, :]
     t_save = range(0.0, 2.5, 75)
     ode_problem, _ = get_odeproblem(x, log_target.prob)
     sol_test = solve(ode_problem, Rodas5P(), abstol = 1.0e-8, reltol = 1.0e-8, saveat = t_save)
@@ -85,6 +85,9 @@ chain_reference_df = CSV.read(
 )
 chain_reference = Array{Float64, 3}(undef, 10000, 3, 1)
 chain_reference[:, :, 1] .= Matrix(chain_reference_df)
+# The reference was generated on linear prior scale; predictive checks consume
+# parameter-scale chains, matching `sample`.
+chain_reference[:, 2:3, 1] .= log10.(chain_reference[:, 2:3, 1])
 chain_reference = MCMCChains.Chains(chain_reference)
 chain_reference = setinfo(
     chain_reference, merge(chain_reference.info, (source = :posterior,))
@@ -100,7 +103,7 @@ posterior_predictive = predictive_check(
 sample_values = PEtabBayes._get_samples(chain_reference, 7500)
 h_test = similar(posterior_predictive[:obs_X].h)
 for i in axes(sample_values, 1)
-    x = [sample_values[i, 1], log10(sample_values[i, 2]), log10(sample_values[i, 3])]
+    x = sample_values[i, :]
     t_save = range(0.0, 2.5, 50)
     ode_problem, _ = get_odeproblem(x, log_target.prob)
     sol_test = solve(ode_problem, Rodas5P(), abstol = 1.0e-8, reltol = 1.0e-8, saveat = t_save)
@@ -152,7 +155,7 @@ rng = StableRNGs.StableRNG(42)
 sample_values = PEtabBayes._get_samples(chain_reference, 7500)
 y_rep_test = similar(posterior_predictive[:obs_X].y_rep)
 for i in axes(sample_values, 1)
-    x = [sample_values[i, 1], log10(sample_values[i, 2]), log10(sample_values[i, 3])]
+    x = sample_values[i, :]
     t_save = log_target.prob.model_info.simulation_info.tsaves[:__c0__]
     ode_problem, _ = get_odeproblem(x, log_target.prob)
     sol_test = solve(ode_problem, Rodas5P(), abstol = 1.0e-8, reltol = 1.0e-8, saveat = t_save)

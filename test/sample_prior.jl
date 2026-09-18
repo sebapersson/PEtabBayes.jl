@@ -15,13 +15,18 @@ p_est = [
 _prob = get_prob_saturated(p_est)
 log_target = PEtabBayesLogDensity(_prob)
 
-# Test prior sampling. ExactOneSampleKSTest tests for a certain sample being drawn from a
-# specific distribution.
+# Test prior sampling returns values on the PEtab parameter scale.
 rng = StableRNGs.StableRNG(42)
 chain_prior = PEtabBayes.sample(rng, log_target, PEtabPrior(), 100000)
-res_b1 = ExactOneSampleKSTest(chain_prior[:b1].data[:], b1_dist)
-res_b2 = ExactOneSampleKSTest(chain_prior[:b2].data[:], b2_dist)
-res_sigma = ExactOneSampleKSTest(chain_prior[:sigma].data[:], sigma_dist)
-@test pvalue(res_b1) > 3.0e-1
-@test pvalue(res_b2) > 3.0e-1
-@test pvalue(res_sigma) > 3.0e-1
+expected_draws = Matrix{Float64}(undef, 100000, 3)
+expected_rng = StableRNGs.StableRNG(42)
+for (j, prior) in pairs(log_target.inference_info.priors)
+    expected_draws[:, j] .= rand(expected_rng, prior, 100000)
+end
+for i in axes(expected_draws, 1)
+    expected_draws[i, :] .= PEtabBayes._to_petab_scale(
+        log_target.inference_info.bijectors(@view(expected_draws[i, :])),
+        log_target.inference_info,
+    )
+end
+@test Array(chain_prior)[:, :, 1] == expected_draws

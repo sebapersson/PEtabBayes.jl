@@ -15,7 +15,8 @@ reflects both parameter uncertainty and observation noise, and is the view compa
 against the data.
 
 # Arguments
-- `chains`: Prior or posterior draws, as returned by [`sample`](@ref).
+- `chains`: Prior or posterior draws on the PEtab parameter scale, as returned by
+  [`sample`](@ref).
 - `log_target`: Log-posterior density `chains` was produced from.
 
 # Keyword arguments
@@ -129,8 +130,7 @@ function PredictiveObservable(
         cols_drop = Int64[]
         model_fit_ref = Any[]
         for row_idx in 1:n_draws
-            x_prior_scale = sample_values[row_idx, :]
-            x_petab_scale = _prior_to_petab_scale(x_prior_scale, log_target.inference_info)
+            x_petab_scale = sample_values[row_idx, :]
 
             model_fit = PEtab._get_observable(
                 x_petab_scale, log_target.prob, condition, experiment, observable_id;
@@ -188,8 +188,7 @@ function PredictiveObservable(
         dist_mod = @view petab_measurements.noise_distributions[idata]
 
         for row_idx in 1:n_draws
-            x_prior_scale = sample_values[row_idx, :]
-            x_petab_scale = _prior_to_petab_scale(x_prior_scale, log_target.inference_info)
+            x_petab_scale = sample_values[row_idx, :]
 
             nllh_val = log_target.prob.nllh(x_petab_scale)
             if !isfinite(nllh_val)
@@ -243,17 +242,4 @@ function _get_y_rep(
         y_rep[i] = rand(rng, dist(transform(h[i]), sigma[i]))
     end
     return y_rep
-end
-
-function _prior_to_petab_scale(
-        x_prior_scale::T, inference_info::InferenceInfo
-    )::T where {T <: AbstractVector{<:Real}}
-    x_petab_scale = similar(x_prior_scale)
-    for i in eachindex(x_petab_scale)
-        inference_info.priors_scale[i] === :parameter_scale && continue
-        x_petab_scale[i] = PEtab.transform_x(
-            x_prior_scale[i], inference_info.parameters_scale[i], to_xscale = true
-        )
-    end
-    return x_petab_scale
 end
