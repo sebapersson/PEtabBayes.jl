@@ -88,10 +88,10 @@ include(joinpath(@__DIR__, "common.jl"))
     @test all(lower_bounds .<= draws_parameter_scale)
     @test all(draws_parameter_scale .<= upper_bounds)
 
-    @test reference_stats.nt.mean[1] ≈ vi_mean[1] atol = 6.0e-1
-    @test reference_stats.nt.mean[2] ≈ vi_mean[2] atol = 5.0e-2
-    @test reference_stats.nt.mean[3] ≈ vi_mean[3] atol = 2.0e-2
+    @test reference_stats[:b1, stat = :mean] ≈ vi_mean[1] atol = 6.0e-1
+    @test reference_stats[:b2, stat = :mean] ≈ vi_mean[2] atol = 5.0e-2
+    @test reference_stats[:sigma, stat = :mean] ≈ vi_mean[3] atol = 2.0e-2
     @test all(isfinite, vi_std)
     @test all(vi_std .> 0.0)
-    @test all(vi_std .< 3 .* reference_stats.nt.std)
+    @test all(vi_std .< 3 .* [reference_stats[p, stat = :std] for p in (:b1, :b2, :sigma)])
 end

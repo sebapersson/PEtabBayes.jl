@@ -8,6 +8,10 @@ end
     include("bijectors.jl")
 end
 
+@safetestset "Chain conversion" begin
+    include("chains.jl")
+end
+
 @safetestset "Sample prior" begin
     include("sample_prior.jl")
 end

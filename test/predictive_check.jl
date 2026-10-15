@@ -1,4 +1,4 @@
-using PEtabBayes, CSV, DataFrames, Distributions, MCMCChains, PEtab, Plots, StableRNGs,
+using PEtabBayes, CSV, DataFrames, Distributions, FlexiChains, PEtab, Plots, StableRNGs,
     Statistics, Test
 
 include(joinpath(@__DIR__, "common.jl"))
@@ -88,9 +88,9 @@ chain_reference[:, :, 1] .= Matrix(chain_reference_df)
 # The reference was generated on linear prior scale; predictive checks consume
 # parameter-scale chains, matching `sample`.
 chain_reference[:, 2:3, 1] .= log10.(chain_reference[:, 2:3, 1])
-chain_reference = MCMCChains.Chains(chain_reference)
-chain_reference = setinfo(
-    chain_reference, merge(chain_reference.info, (source = :posterior,))
+chain_reference = SymChain(
+    permutedims(chain_reference, (1, 3, 2)),
+    Tuple(FlexiChains.Parameter.(log_target.inference_info.parameters_id))
 )
 
 posterior_predictive = predictive_check(

@@ -29,4 +29,4 @@ for i in axes(expected_draws, 1)
         log_target.inference_info,
     )
 end
-@test Array(chain_prior)[:, :, 1] == expected_draws
+@test Array(chain_prior)[:, 1, :] == expected_draws

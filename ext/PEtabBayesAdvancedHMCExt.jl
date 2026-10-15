@@ -3,7 +3,6 @@ module PEtabBayesAdvancedHMCExt
 import AdvancedHMC
 import ArgCheck: @argcheck
 import Dates
-import MCMCChains: Chains
 import PEtabBayes
 
 const HMCSampler = Union{AdvancedHMC.HMC, AdvancedHMC.NUTS, AdvancedHMC.HMCDA}

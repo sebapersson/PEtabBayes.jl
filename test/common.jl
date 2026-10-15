@@ -1,4 +1,4 @@
-using DataFrames, CSV, MCMCChains, ModelingToolkitBase, OrdinaryDiffEqRosenbrock, PEtab,
+using DataFrames, CSV, FlexiChains, ModelingToolkitBase, OrdinaryDiffEqRosenbrock, PEtab,
     Random, Distributions
 using ModelingToolkitBase: t_nounits as t, D_nounits as D
 
@@ -7,7 +7,9 @@ function get_reference_stats(path_data)
     chain_reference_df = CSV.read(path_data, DataFrame)
     _chain_reference = Array{Float64, 3}(undef, 10000, 3, 1)
     _chain_reference[:, :, 1] .= Matrix(chain_reference_df)
-    chain_reference = MCMCChains.Chains(_chain_reference)
+    chain_reference = SymChain(
+        permutedims(_chain_reference, (1, 3, 2)), Tuple(FlexiChains.Parameter.((:b1, :b2, :sigma)))
+    )
     reference_stats = summarystats(chain_reference)
     return reference_stats
 end
