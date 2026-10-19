@@ -130,7 +130,7 @@ x_inference_scale = log_density.inference_info.bijectors(
 chain = PEtabBayes._to_chains_adaptive_mcmc(
     (X = reshape(x_inference_scale, :, 1),), log_density
 )
-@test Array(chain)[1, :, 1] ≈ x_petab_scale
+@test Array(chain)[1, 1, :] ≈ x_petab_scale
 
 prior, prior_scale = PEtabBayes._default_uniform_prior(
     :k1, :log10, -2.0, 1.0, 0.01, 10.0, "1.0.0", false

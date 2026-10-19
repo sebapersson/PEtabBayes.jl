@@ -23,12 +23,12 @@ include(joinpath(@__DIR__, "common.jl"))
     )
     hmc_stats = summarystats(chain_hmc)
     @testset "HMC" begin
-        @test reference_stats.nt.mean[1] ≈ hmc_stats.nt.mean[1] atol = 2.0e-1
-        @test reference_stats.nt.mean[2] ≈ hmc_stats.nt.mean[2] atol = 1.0e-2
-        @test reference_stats.nt.mean[3] ≈ hmc_stats.nt.mean[3] atol = 1.0e-2
-        @test reference_stats.nt.std[1] ≈ hmc_stats.nt.std[1] atol = 1.0e-1
-        @test reference_stats.nt.std[2] ≈ hmc_stats.nt.std[2] atol = 1.0e-2
-        @test reference_stats.nt.std[3] ≈ hmc_stats.nt.std[3] atol = 1.0e-2
+        @test reference_stats[:b1, stat = :mean] ≈ hmc_stats[:b1, stat = :mean] atol = 2.0e-1
+        @test reference_stats[:b2, stat = :mean] ≈ hmc_stats[:b2, stat = :mean] atol = 1.0e-2
+        @test reference_stats[:sigma, stat = :mean] ≈ hmc_stats[:sigma, stat = :mean] atol = 1.0e-2
+        @test reference_stats[:b1, stat = :std] ≈ hmc_stats[:b1, stat = :std] atol = 1.0e-1
+        @test reference_stats[:b2, stat = :std] ≈ hmc_stats[:b2, stat = :std] atol = 1.0e-2
+        @test reference_stats[:sigma, stat = :std] ≈ hmc_stats[:sigma, stat = :std] atol = 1.0e-2
     end
 
     # AdaptiveMCMC
@@ -38,22 +38,22 @@ include(joinpath(@__DIR__, "common.jl"))
     )
     adaptive_stats1 = summarystats(chain_adapt1)
     @testset "Adaptive MCMC RAM" begin
-        @test reference_stats.nt.mean[1] ≈ adaptive_stats1.nt.mean[1] atol = 2.0e-1
-        @test reference_stats.nt.mean[2] ≈ adaptive_stats1.nt.mean[2] atol = 1.0e-2
-        @test reference_stats.nt.mean[3] ≈ adaptive_stats1.nt.mean[3] atol = 1.0e-2
-        @test reference_stats.nt.std[1] ≈ adaptive_stats1.nt.std[1] atol = 5.0e-1
-        @test reference_stats.nt.std[2] ≈ adaptive_stats1.nt.std[2] atol = 1.0e-2
-        @test reference_stats.nt.std[3] ≈ adaptive_stats1.nt.std[3] atol = 1.0e-2
+        @test reference_stats[:b1, stat = :mean] ≈ adaptive_stats1[:b1, stat = :mean] atol = 2.0e-1
+        @test reference_stats[:b2, stat = :mean] ≈ adaptive_stats1[:b2, stat = :mean] atol = 1.0e-2
+        @test reference_stats[:sigma, stat = :mean] ≈ adaptive_stats1[:sigma, stat = :mean] atol = 1.0e-2
+        @test reference_stats[:b1, stat = :std] ≈ adaptive_stats1[:b1, stat = :std] atol = 5.0e-1
+        @test reference_stats[:b2, stat = :std] ≈ adaptive_stats1[:b2, stat = :std] atol = 1.0e-2
+        @test reference_stats[:sigma, stat = :std] ≈ adaptive_stats1[:sigma, stat = :std] atol = 1.0e-2
     end
     # Test other adaptive MCMC sampler
     chain_adapt2 = PEtabBayes.sample(log_target, AdaptiveMetropolis(x0), 200000, x0)
     adaptive_stats2 = summarystats(chain_adapt2)
     @testset "Adaptive MCMC AM" begin
-        @test reference_stats.nt.mean[1] ≈ adaptive_stats2.nt.mean[1] atol = 2.0e-1
-        @test reference_stats.nt.mean[2] ≈ adaptive_stats2.nt.mean[2] atol = 1.0e-2
-        @test reference_stats.nt.mean[3] ≈ adaptive_stats2.nt.mean[3] atol = 1.0e-2
-        @test reference_stats.nt.std[1] ≈ adaptive_stats2.nt.std[1] atol = 5.0e-1
-        @test reference_stats.nt.std[2] ≈ adaptive_stats2.nt.std[2] atol = 1.0e-2
-        @test reference_stats.nt.std[3] ≈ adaptive_stats2.nt.std[3] atol = 1.0e-2
+        @test reference_stats[:b1, stat = :mean] ≈ adaptive_stats2[:b1, stat = :mean] atol = 2.0e-1
+        @test reference_stats[:b2, stat = :mean] ≈ adaptive_stats2[:b2, stat = :mean] atol = 1.0e-2
+        @test reference_stats[:sigma, stat = :mean] ≈ adaptive_stats2[:sigma, stat = :mean] atol = 1.0e-2
+        @test reference_stats[:b1, stat = :std] ≈ adaptive_stats2[:b1, stat = :std] atol = 5.0e-1
+        @test reference_stats[:b2, stat = :std] ≈ adaptive_stats2[:b2, stat = :std] atol = 1.0e-2
+        @test reference_stats[:sigma, stat = :std] ≈ adaptive_stats2[:sigma, stat = :std] atol = 1.0e-2
     end
 end
