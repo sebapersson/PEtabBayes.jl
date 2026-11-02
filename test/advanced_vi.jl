@@ -34,6 +34,18 @@ include(joinpath(@__DIR__, "common.jl"))
     @test q_init_inference_scale.location ≈ x0_inference_scale
     @test q_init_inference_scale.scale == q_init.scale
 
+    # AdvancedVI may supply a column view rather than a standalone vector.
+    x_view = view(reshape(copy(x0_inference_scale), :, 1), :, 1)
+    value, gradient = PEtabBayes.LogDensityProblems.logdensity_and_gradient(
+        log_target, x0_inference_scale
+    )
+    gradient = copy(gradient)
+    view_value, view_gradient = PEtabBayes.LogDensityProblems.logdensity_and_gradient(
+        log_target, x_view
+    )
+    @test view_value ≈ value
+    @test view_gradient ≈ gradient
+
     alg = AdvancedVI.KLMinRepGradDescent(
         ADTypes.AutoReverseDiff();
         optimizer = Optimisers.Adam(2.0e-2),
