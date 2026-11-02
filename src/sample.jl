@@ -4,7 +4,7 @@
     )
 
 Draw `n_samples` from the posterior defined by `log_target`, starting from `x0` using the
-adaptive MCMC sampler `alg` from AdaptiveMCMC.jl. Returns an `MCMCChains.Chains`.
+adaptive MCMC sampler `alg` from AdaptiveMCMC.jl. Returns a `FlexiChains.SymChain`.
 
 This is a wrapper around `adaptive_rwm` from
 [AdaptiveMCMC.jl](https://github.com/mvihola/AdaptiveMCMC.jl) and supports the same
@@ -22,7 +22,7 @@ keyword arguments.
 - `n_samples`: Number of samples to draw, including burn-in.
 - `x0`: Initial parameter vector on the PEtab estimation scale, for example the output from
   `get_x(petab_prob)`. Can be a `Vector` or `ComponentArray`. To sample several chains, pass
-  a `Vector` of initial points (one per chain); the result is a single `MCMCChains.Chains`
+  a `Vector` of initial points (one per chain); the result is a single `FlexiChains.SymChain`
   with one entry along the chain dimension per initial point.
 
 # Keyword arguments
@@ -58,7 +58,7 @@ end
     )
 
 Draw `n_samples` from the posterior defined by `log_target`, starting from `x0`, using the
-Hamiltonian Monte Carlo sampler `alg` from AdvancedHMC.jl. Returns an `MCMCChains.Chains`.
+Hamiltonian Monte Carlo sampler `alg` from AdvancedHMC.jl. Returns a `FlexiChains.SymChain`.
 
 This is a wrapper around `AdvancedHMC.sample` from
 [AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl).
@@ -92,8 +92,8 @@ end
         [rng::AbstractRNG, ] log_target::PEtabBayesLogDensity, alg::PEtabPrior, n_samples
     )
 
-Draw `n_samples` independent samples from the prior defined by `log_target`. Returns an
-`MCMCChains.Chains` on the PEtab parameter scale.
+Draw `n_samples` independent samples from the prior defined by `log_target`. Returns a
+`FlexiChains.SymChain` on the PEtab parameter scale.
 
 `log_target` has the same meaning as in
 `sample(log_target, x0, n_samples, alg::AdaptiveMCMC.AdaptState; kwargs...)`. Unlike the
@@ -107,13 +107,13 @@ distributions, so no sampler configuration or initial point `x0` is required.
 """
 function sample(
         log_target::PEtabBayesLogDensity, alg::PEtabPrior, n_samples::Integer
-    )::Chains
+    )::FlexiChain
     return sample(Random.default_rng(), log_target, alg, n_samples)
 end
 function sample(
         rng::Random.AbstractRNG, log_target::PEtabBayesLogDensity, ::PEtabPrior,
         n_samples::Integer
-    )::Chains
+    )::FlexiChain
     @argcheck n_samples > 0
     @unpack priors, parameters_id = log_target.inference_info
 
@@ -130,8 +130,7 @@ function sample(
     end
     # TODO: Drop draws we cannot evaluate?
 
-    chain = Chains(draws, parameters_id)
-    return setinfo(chain, merge(chain.info, (source = :prior,)))
+    return _to_chain(draws, parameters_id; source = :prior)
 end
 
 function _sample end

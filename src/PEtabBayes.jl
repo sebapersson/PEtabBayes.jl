@@ -4,10 +4,11 @@ import ArgCheck: @argcheck
 import Bijectors
 using ComponentArrays: ComponentArray, labels
 import Distributed
+import Dates
 using Distributions: Distribution, Univariate, Continuous, Uniform, logpdf, params
 using LogDensityProblems: LogDensityProblems, LogDensityOrder
 import ForwardDiff
-using MCMCChains: Chains, setinfo, chainscat
+using FlexiChains: FlexiChains, FlexiChain, SymChain, Parameter, Extra
 using PEtab: PEtab, PEtabODEProblem
 import Random
 using SimpleUnPack: @unpack

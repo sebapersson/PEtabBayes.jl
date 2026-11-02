@@ -58,8 +58,9 @@ function _to_inference_scale(
 end
 
 function _gradient_to_inference_scale!(
-        grad::T, x_inference::T, x_petab_scale::T, inference_info::InferenceInfo
-    )::Nothing where {T <: AbstractVector{<:Real}}
+        grad::AbstractVector{<:Real}, x_inference::AbstractVector{<:Real},
+        x_petab_scale::AbstractVector{<:Real}, inference_info::InferenceInfo
+    )::Nothing
     # Two-step procedure
     # 1 : From parameter to prior-scale
     # 2 : From prior to inference scale

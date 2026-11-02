@@ -8,7 +8,7 @@
 function _sample_chains(
         ::SerialSampling, log_target::PEtabBayesLogDensity, alg, n_samples::Integer,
         x0::AbstractVector; kwargs...
-    )::Chains
+    )::FlexiChain
     chains = map(x0) do x0_chain
         _sample(log_target, alg, n_samples, x0_chain; kwargs...)
     end
@@ -18,7 +18,7 @@ end
 function _sample_chains(
         ::ThreadedSampling, log_target::PEtabBayesLogDensity, alg, n_samples::Integer,
         x0::AbstractVector; kwargs...
-    )::Chains
+    )::FlexiChain
     if Threads.nthreads() == 1
         @warn "Sampling with `parallel = ThreadedSampling()`, but Julia is running with a \
             single thread (`Threads.nthreads() == 1`); the chains will be sampled \
@@ -27,7 +27,7 @@ function _sample_chains(
     end
 
     n_chains = length(x0)
-    chains = Vector{Chains}(undef, n_chains)
+    chains = Vector{FlexiChain}(undef, n_chains)
     Threads.@threads for i in 1:n_chains
         log_target_i = deepcopy(log_target)
         chains[i] = _sample(log_target_i, alg, n_samples, x0[i]; kwargs...)
@@ -41,7 +41,7 @@ end
 function _sample_chains(
         backend::DistributedSampling, log_target::PEtabBayesLogDensity, alg,
         n_samples::Integer, x0::AbstractVector; kwargs...
-    )::Chains
+    )::FlexiChain
     _nprocs = backend.nprocs == 1 ? 0 : backend.nprocs
     pids = Distributed.addprocs(_nprocs)
     chains = try
@@ -71,22 +71,7 @@ function _load_packages_workers(pids::Vector{Int}, alg)::Nothing
     return nothing
 end
 
-function _combine_chains(chains::AbstractVector)::Chains
+function _combine_chains(chains::AbstractVector)::FlexiChain
     length(chains) == 1 && return only(chains)
-    combined = reduce(chainscat, chains)
-
-    # `chainscat` keeps the first chain's `info`; rebuild the relevant entries so the
-    # reported wall-clock time spans the whole run and the posterior source is preserved.
-    infos = [chain.info for chain in chains]
-    info = NamedTuple()
-    if all(haskey(i, :start_time) for i in infos)
-        info = merge(info, (start_time = minimum(i.start_time for i in infos),))
-    end
-    if all(haskey(i, :stop_time) for i in infos)
-        info = merge(info, (stop_time = maximum(i.stop_time for i in infos),))
-    end
-    if all(haskey(i, :source) for i in infos)
-        info = merge(info, (source = first(infos).source,))
-    end
-    return isempty(info) ? combined : setinfo(combined, info)
+    return reduce(hcat, chains)
 end

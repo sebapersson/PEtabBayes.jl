@@ -1,6 +1,6 @@
 """
     predictive_check(
-        [rng::AbstractRNG, ] chains::Chains, log_target::PEtabBayesLogDensity; condition = nothing,
+        [rng::AbstractRNG, ] chains::FlexiChain, log_target::PEtabBayesLogDensity; condition = nothing,
         experiment = nothing, observable_ids = nothing, n_draws = nothing, n_tsave = 50,
         model_fit = true, data_fit = true
     )
@@ -37,13 +37,13 @@ A [`PEtabPredictiveCheck`](@ref), which is plotted with  `plot(pc, :model_fit)` 
 `plot(pc, :data_fit)`.
 """
 function predictive_check(
-        chains::Chains, log_target::PEtabBayesLogDensity; kwargs...
+        chains::FlexiChain, log_target::PEtabBayesLogDensity; kwargs...
     )::PEtabPredictiveCheck
     rng = Random.default_rng()
     return predictive_check(rng, chains, log_target; kwargs...)
 end
 function predictive_check(
-        rng::Random.AbstractRNG, chains::Chains, log_target::PEtabBayesLogDensity;
+        rng::Random.AbstractRNG, chains::FlexiChain, log_target::PEtabBayesLogDensity;
         condition::Union{PEtab.ConditionExp, Nothing} = nothing,
         experiment::Union{PEtab.ConditionExp, Nothing} = nothing,
         observable_ids::Union{Vector{Symbol}, Nothing} = nothing,
@@ -211,15 +211,16 @@ function PredictiveObservable(
     )
 end
 
-function _infer_source(chains::Chains)::Symbol
-    haskey(chains.info, :source) || return :posterior
-    return Symbol(chains.info.source)
+function _infer_source(chains::FlexiChain)::Symbol
+    haskey(chains, Extra(:is_prior)) || return :posterior
+    return all(chains[Extra(:is_prior)]) ? :prior : :posterior
 end
 
 function _get_samples(
-        chains::Chains, n_draws::Union{Nothing, Integer}
+        chains::FlexiChain, n_draws::Union{Nothing, Integer}
     )::Matrix{Float64}
-    sample_values = Array(chains)
+    draws = Array(chains)
+    sample_values = reshape(draws, :, size(draws, 3))
     n_samples = size(sample_values, 1)
     n_draws = isnothing(n_draws) ? min(5000, n_samples) : n_draws
     @argcheck n_draws <= n_samples
