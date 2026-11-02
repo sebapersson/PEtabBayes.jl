@@ -17,6 +17,7 @@ include(joinpath(@__DIR__, "common.jl"))
     )
 
     # HMC inference
+    Random.seed!(1234)
     chain_hmc = PEtabBayes.sample(
         log_target, NUTS(0.8), 3000, x0; n_adapts = 1000, drop_warmup = true,
         progress = false, verbose = true
