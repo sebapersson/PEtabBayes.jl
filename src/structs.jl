@@ -176,12 +176,13 @@ parameter vectors drawn from either the prior or the posterior.
 
 # Indexing
 
-Individual observables can be retrieved by their `observable_id`, and the available ids
-queried with [`observable_ids`](@ref):
+Individual observables can be retrieved by their `observable_id`. The available ids
+can be read from `observables`:
 
 ```julia
 pc[:obs_id]            # the PredictiveObservable for :obs_id
 length(pc)             # number of observables
+[obs.observable_id for obs in pc.observables] # available observable ids
 ```
 
 See also [`predictive_check`](@ref).
