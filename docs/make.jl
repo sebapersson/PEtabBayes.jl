@@ -32,7 +32,7 @@ makedocs(
 )
 
 DocumenterVitepress.deploydocs(
-    repo = "github.com/sebapersson/PEtabBayes.jl.git", 
+    repo = "github.com/sebapersson/PEtabBayes.jl.git",
     target = "build", # this is where Vitepress stores its output
     devbranch = "main",
     branch = "gh-pages",
