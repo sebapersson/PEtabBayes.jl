@@ -2,10 +2,15 @@ using Pkg
 Pkg.activate(@__DIR__)
 
 using Documenter
+using DocumenterCitations
 using DocumenterVitepress
 using PEtabBayes
 
 DocMeta.setdocmeta!(PEtabBayes, :DocTestSetup, :(using PEtabBayes); recursive = false)
+
+bib = CitationBibliography(
+    joinpath(@__DIR__, "refs.bib"), style = :numeric, show_backlinks = false
+)
 
 makedocs(
     modules = [PEtabBayes],
@@ -14,6 +19,7 @@ makedocs(
     authors = "Henrik Häggström and Sebastian Persson",
     checkdocs = :exports,
     warnonly = false,
+    plugins = [bib],
     format = DocumenterVitepress.MarkdownVitepress(
         repo = "https://github.com/sebapersson/PEtabBayes.jl",
     ),

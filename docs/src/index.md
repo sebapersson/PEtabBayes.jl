@@ -6,11 +6,14 @@ approximate its posterior distribution.
 
 ## Features
 
-- Posterior sampling with AdvancedHMC.jl (including NUTS) and AdaptiveMCMC.jl.
+- MCMC posterior sampling with [AdvancedHMC.jl](https://github.com/TuringLang/AdvancedHMC.jl),
+  including NUTS as in Stan, and [AdaptiveMCMC.jl](https://github.com/mvihola/AdaptiveMCMC.jl).
 - Serial, threaded, and distributed sampling of multiple chains.
-- Variational inference with AdvancedVI.jl and Pathfinder.jl.
+- Variational inference with [AdvancedVI.jl](https://github.com/TuringLang/AdvancedVI.jl)
+  and [Pathfinder.jl](https://github.com/mlcolab/Pathfinder.jl).
 - Independent prior sampling and prior/posterior predictive checks.
-- A LogDensityProblems.jl interface with parameter transformations and prior corrections.
+- A [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface
+  with parameter transformations and prior corrections.
 
 Load the corresponding inference package to enable its PEtabBayes integration.
 
@@ -26,7 +29,7 @@ Pkg.add("PEtabBayes")
 Install the packages used by the [getting started tutorial](@ref tutorial) with:
 
 ```julia
-Pkg.add(["PEtab", "AdvancedHMC", "DataFrames", "Distributions",
+Pkg.add(["PEtab", "AdvancedHMC", "Pathfinder", "DataFrames", "Distributions",
     "ModelingToolkitBase", "OrdinaryDiffEqRosenbrock", "Plots"])
 ```
 
